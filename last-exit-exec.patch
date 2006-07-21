@@ -1,0 +1,9 @@
+diff -dur -x '*~' last-exit-1.0.orig/src/last-exit.in last-exit-1.0/src/last-exit.in
+--- last-exit-1.0.orig/src/last-exit.in	2006-03-29 00:27:22.000000000 +0200
++++ last-exit-1.0/src/last-exit.in	2006-07-21 12:36:43.000000000 +0200
+@@ -2,4 +2,4 @@
+ 
+ export MONO_GAC_PREFIX=$MONO_GAC_PREFIX:@prefix@
+ 
+-exec -a "last-exit" @mono@ @mono_flags@ @pkglibdir@/@target@ "$@"
++exec @mono@ @mono_flags@ @pkglibdir@/@target@ "$@"
