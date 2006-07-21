@@ -15,6 +15,8 @@ BuildRequires:	automake
 BuildRequires:	intltool
 BuildRequires:	libtool
 BuildRequires:	mono-csharp
+BuildRequires:	gstreamer-plugins-base-devel
+BuildRequires:	dotnet-gtk-sharp2-gnome-devel
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
