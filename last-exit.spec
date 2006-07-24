@@ -1,6 +1,5 @@
-#
-#
-Summary:	GTK Last.fm player
+Summary:	GTK+ Last.fm player
+Summary(pl):	Odtwarzacz Last.fm dla GTK+
 Name:		last-exit
 Version:	1.0
 Release:	0.1
@@ -10,38 +9,27 @@ Source0:	http://www.o-hand.com/~iain/last-exit/%{name}-%{version}.tar.bz2
 # Source0-md5:	ed579d0358624ebee677d24f25be0273
 Patch0:		%{name}-exec.patch
 URL:		http://www.o-hand.com/~iain/last-exit/
-BuildRequires:	autoconf
-BuildRequires:	automake
-BuildRequires:	intltool
-BuildRequires:	libtool
-BuildRequires:	mono-csharp
-BuildRequires:	gstreamer-plugins-base-devel
 BuildRequires:	dotnet-gtk-sharp2-gnome-devel
+BuildRequires:	gstreamer-plugins-base-devel
+BuildRequires:	mono-csharp
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
 Last Exit is a player for Last.fm.
+
+%description -l pl
+Last Exit to odtwarzacz Last.fm.
 
 %prep
 %setup -q
 %patch0 -p1
 
 %build
-#%%{__intltoolize}
-#%%{__gettextize}
-#%%{__libtoolize}
-#%%{__aclocal}
-#%%{__autoconf}
-#%%{__autoheader}
-#%%{__automake}
 %configure
 %{__make}
 
 %install
 rm -rf $RPM_BUILD_ROOT
-# create directories if necessary
-#install -d $RPM_BUILD_ROOT
-#install -d $RPM_BUILD_ROOT%{_examplesdir}/%{name}-%{version}
 
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
@@ -50,8 +38,6 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/%{name}/*.a
 
 %clean
 rm -rf $RPM_BUILD_ROOT
-
-%pre
 
 %post
 %gconf_schema_install last-exit.schemas
