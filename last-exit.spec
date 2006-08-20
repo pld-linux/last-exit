@@ -15,12 +15,12 @@ BuildRequires:	dbus-glib-devel >= 0.71
 BuildRequires:	dotnet-gnome-sharp-devel >= 2.15.0
 BuildRequires:	gstreamer-plugins-base-devel >= 0.10.9
 BuildRequires:	mono-csharp >= 1.1.16.1
-BuildRequires:  rpmbuild(macros) >= 1.176
-Requires(post,preun):   GConf2 >= 2.14.0
-Requires(post,postun):  gtk+2 >= 2.10.2
-Requires:       gstreamer-audio-effects-base >= 0.10.9
-Requires:       gstreamer-audio-formats >= 0.10.4
-Requires:       gstreamer-audiosink
+BuildRequires:	rpmbuild(macros) >= 1.176
+Requires(post,preun):	GConf2 >= 2.14.0
+Requires(post,postun):	gtk+2 >= 2.10.2
+Requires:	gstreamer-audio-effects-base >= 0.10.9
+Requires:	gstreamer-audio-formats >= 0.10.4
+Requires:	gstreamer-audiosink
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
