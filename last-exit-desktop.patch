@@ -1,0 +1,18 @@
+diff -aurN last-exit-2.0.orig/data/last-exit.desktop.in last-exit-2.0/data/last-exit.desktop.in
+--- last-exit-2.0.orig/data/last-exit.desktop.in	2006-07-08 19:34:50.000000000 +0200
++++ last-exit-2.0/data/last-exit.desktop.in	2006-08-20 11:30:37.000000000 +0200
+@@ -3,12 +3,12 @@
+ _Name=Last-Exit
+ _Comment=Last.fm player
+ Exec=last-exit
+-Icon=last-exit-24
++Icon=last-exit
+ Terminal=false
+ Type=Application
+ Encoding=UTF-8
+ StartupNotify=true
+-Categories=GTK;Application;AudioVideo;
++Categories=GTK;GNOME;AudioVideo;
+ X-GNOME-Bugzilla-Bugzilla=GNOME
+ X-GNOME-Bugzilla-Product=last-exit
+ X-GNOME-Bugzilla-Component=General
