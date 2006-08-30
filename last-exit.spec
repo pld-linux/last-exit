@@ -11,15 +11,15 @@ Patch0:		%{name}-exec.patch
 Patch1:		%{name}-desktop.patch
 URL:		http://www.o-hand.com/~iain/last-exit/
 BuildRequires:	GConf2-devel >= 2.14.0
-BuildRequires:	dbus-glib-devel >= 0.71
-BuildRequires:	dotnet-gnome-sharp-devel >= 2.15.0
-BuildRequires:	gstreamer-plugins-base-devel >= 0.10.9
-BuildRequires:	mono-csharp >= 1.1.16.1
+BuildRequires:	dbus-glib-devel >= 0.62
+BuildRequires:	dotnet-gtk-sharp2-devel >= 2.8.2
+BuildRequires:	gstreamer-plugins-base-devel >= 0.10
+BuildRequires:	mono-csharp >= 1.1.13.8
 BuildRequires:	rpmbuild(macros) >= 1.176
 Requires(post,preun):	GConf2 >= 2.14.0
-Requires(post,postun):	gtk+2 >= 2.10.2
-Requires:	gstreamer-audio-effects-base >= 0.10.9
-Requires:	gstreamer-audio-formats >= 0.10.4
+Requires(post,postun):	gtk+2 >= 2.8.0
+Requires:	gstreamer-audio-effects-base >= 0.10
+Requires:	gstreamer-audio-formats >= 0.10
 Requires:	gstreamer-audiosink
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
