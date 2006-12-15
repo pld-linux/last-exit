@@ -1,12 +1,12 @@
 Summary:	GTK+ Last.fm player
 Summary(pl):	Odtwarzacz Last.fm dla GTK+
 Name:		last-exit
-Version:	2.0
+Version:	3
 Release:	1
 License:	GPL v2+
 Group:		X11/Applications/Multimedia
 Source0:	http://www.o-hand.com/~iain/last-exit/%{name}-%{version}.tar.bz2
-# Source0-md5:	85e31cbf8827284422d9328a71d777f2
+# Source0-md5:	ddd3de15655264a2a5368fcf5c00584b
 Patch0:		%{name}-exec.patch
 Patch1:		%{name}-desktop.patch
 URL:		http://www.o-hand.com/~iain/last-exit/
