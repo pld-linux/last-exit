@@ -1,7 +1,9 @@
-diff -dur -x '*~' last-exit-1.0.orig/src/last-exit.in last-exit-1.0/src/last-exit.in
---- last-exit-1.0.orig/src/last-exit.in	2006-03-29 00:27:22.000000000 +0200
-+++ last-exit-1.0/src/last-exit.in	2006-07-21 12:36:43.000000000 +0200
-@@ -2,4 +2,4 @@
+diff -ur last-exit-3/src/last-exit.in last-exit-3-exec/src/last-exit.in
+--- last-exit-3/src/last-exit.in	2006-07-10 22:51:05.000000000 +0200
++++ last-exit-3-exec/src/last-exit.in	2006-12-15 20:18:38.000000000 +0100
+@@ -1,5 +1,5 @@
+-#!/bin/bash
++#!/bin/sh
  
  export MONO_GAC_PREFIX=$MONO_GAC_PREFIX:@prefix@
  
