@@ -1,12 +1,12 @@
 Summary:	GTK+ Last.fm player
 Summary(pl):	Odtwarzacz Last.fm dla GTK+
 Name:		last-exit
-Version:	3
+Version:	4
 Release:	1
 License:	GPL v2+
 Group:		X11/Applications/Multimedia
 Source0:	http://www.o-hand.com/~iain/last-exit/%{name}-%{version}.tar.bz2
-# Source0-md5:	ddd3de15655264a2a5368fcf5c00584b
+# Source0-md5:	5e4401bbad36d00894d3843cc2ef9338
 Patch0:		%{name}-exec.patch
 Patch1:		%{name}-desktop.patch
 URL:		http://www.o-hand.com/~iain/last-exit/
@@ -69,7 +69,10 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_libdir}/%{name}
 %attr(755,root,root) %{_libdir}/%{name}/*.exe*
 %attr(755,root,root) %{_libdir}/%{name}/*.so
+%attr(755,root,root) %{_libdir}/%{name}/NDesk.*
+%attr(755,root,root) %{_libdir}/%{name}/notify-sharp.dll
 %{_sysconfdir}/gconf/schemas/last-exit.schemas
 %{_sysconfdir}/gconf/schemas/lastfm.schemas
 %{_desktopdir}/*.desktop
 %{_iconsdir}/*/*/apps/last-exit*
+%{_iconsdir}/*/*/actions/*
