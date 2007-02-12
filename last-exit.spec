@@ -1,5 +1,5 @@
 Summary:	GTK+ Last.fm player
-Summary(pl.UTF-8):   Odtwarzacz Last.fm dla GTK+
+Summary(pl.UTF-8):	Odtwarzacz Last.fm dla GTK+
 Name:		last-exit
 Version:	4
 Release:	1
