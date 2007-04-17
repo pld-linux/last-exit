@@ -1,0 +1,5004 @@
+diff -Nur last-exit-5/ChangeLog last-exit-5-patched/ChangeLog
+--- last-exit-5/ChangeLog	2007-04-11 23:12:03.000000000 +0200
++++ last-exit-5-patched/ChangeLog	2007-04-15 04:46:45.000000000 +0200
+@@ -1,3 +1,15 @@
++2007-04-14  Brandon Hale  <brandon@brandonhale.us>
++
++	* dbus-sharp/:
++	Update to dbus-sharp 0.4.2
++
++	* src/TagView.cs, src/TagSelector.cs, po/POTFILES.in:
++	One more l10n patch from Lukasz on bug #428933.
++
++2007-04-12  Brandon Hale  <brandon@brandonhale.us>
++	
++	Reduce libsexy requirement to 0.1.5 for SLED.
++
+ 2007-04-10  Brandon Hale  <brandon@brandonhale.us>
+ 
+ 	* src/PlayerWindow.cs:
+diff -Nur last-exit-5/configure.ac last-exit-5-patched/configure.ac
+--- last-exit-5/configure.ac	2007-04-13 00:13:55.000000000 +0200
++++ last-exit-5-patched/configure.ac	2007-04-17 17:17:07.000000000 +0200
+@@ -28,7 +28,7 @@
+ 		  gstreamer-0.10 >= $GSTREAMER_REQUIRED \
+ 		  gstreamer-base-0.10			\
+ 		  gstreamer-plugins-base-0.10 >= $GSTREAMER_REQUIRED \
+-		  libsexy >= 0.1.7 \
++		  libsexy >= 0.1.5 \
+ 		  dbus-1 >= 0.60 \
+ 		  dbus-glib-1 >= 0.60)
+ AC_SUBST(LASTEXIT_CFLAGS)
+@@ -80,7 +80,7 @@
+ GETTEXT_PACKAGE="last-exit"
+ AC_SUBST(GETTEXT_PACKAGE)
+ 
+-ALL_LINGUAS="de sv tr"
++ALL_LINGUAS="ar de pl sv tr"
+ AM_GLIB_GNU_GETTEXT
+ 
+ AC_OUTPUT([
+diff -Nur last-exit-5/data/.cvsignore last-exit-5-patched/data/.cvsignore
+--- last-exit-5/data/.cvsignore	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/data/.cvsignore	2006-07-26 23:36:47.000000000 +0200
+@@ -0,0 +1,5 @@
++Makefile
++Makefile.in
++last-exit.schemas
++lastfm.schemas
++last-exit.desktop
+diff -Nur last-exit-5/data/glade/.cvsignore last-exit-5-patched/data/glade/.cvsignore
+--- last-exit-5/data/glade/.cvsignore	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/data/glade/.cvsignore	2006-03-23 13:49:38.000000000 +0100
+@@ -0,0 +1,2 @@
++Makefile
++Makefile.in
+diff -Nur last-exit-5/data/icons/.cvsignore last-exit-5-patched/data/icons/.cvsignore
+--- last-exit-5/data/icons/.cvsignore	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/data/icons/.cvsignore	2006-03-23 13:49:38.000000000 +0100
+@@ -0,0 +1,2 @@
++Makefile
++Makefile.in
+Pliki last-exit-5/data/icons/show-info-16.png i last-exit-5-patched/data/icons/show-info-16.png różnią się
+diff -Nur last-exit-5/data/ui/.cvsignore last-exit-5-patched/data/ui/.cvsignore
+--- last-exit-5/data/ui/.cvsignore	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/data/ui/.cvsignore	2006-03-23 13:49:38.000000000 +0100
+@@ -0,0 +1,2 @@
++Makefile
++Makefile.in
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/BusObject.cs last-exit-5-patched/dbus-sharp/dbus-sharp/BusObject.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/BusObject.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/BusObject.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -5,6 +5,7 @@
+ using System;
+ using System.Reflection;
+ using System.Reflection.Emit;
++using System.Collections.Generic;
+ 
+ namespace NDesk.DBus
+ {
+@@ -12,7 +13,7 @@
+ 	//it probably needs to be made into a base and import/export subclasses
+ 	internal class BusObject
+ 	{
+-		Connection conn;
++		protected Connection conn;
+ 		string bus_name;
+ 		ObjectPath object_path;
+ 
+@@ -94,20 +95,25 @@
+ 				string[] parts = methodName.Split (new char[]{'_'}, 2);
+ 				string ename = parts[1];
+ 				Delegate dlg = (Delegate)inArgs[0];
+-				string matchRule = MessageFilter.CreateMatchRule (MessageType.Signal, object_path, Mapper.GetInterfaceName (mi), ename);
++
++				MatchRule rule = new MatchRule ();
++				rule.MessageType = MessageType.Signal;
++				rule.Interface = Mapper.GetInterfaceName (mi);
++				rule.Member = ename;
++				rule.Path = object_path;
+ 
+ 				if (parts[0] == "add") {
+-					if (conn.Handlers.ContainsKey (matchRule))
+-						conn.Handlers[matchRule] = Delegate.Combine (conn.Handlers[matchRule], dlg);
++					if (conn.Handlers.ContainsKey (rule))
++						conn.Handlers[rule] = Delegate.Combine (conn.Handlers[rule], dlg);
+ 					else {
+-						conn.Handlers[matchRule] = dlg;
+-						conn.AddMatch (matchRule);
++						conn.Handlers[rule] = dlg;
++						conn.AddMatch (rule.ToString ());
+ 					}
+ 				} else if (parts[0] == "remove") {
+-					conn.Handlers[matchRule] = Delegate.Remove (conn.Handlers[matchRule], dlg);
+-					if (conn.Handlers[matchRule] == null) {
+-						conn.RemoveMatch (matchRule);
+-						conn.Handlers.Remove (matchRule);
++					conn.Handlers[rule] = Delegate.Remove (conn.Handlers[rule], dlg);
++					if (conn.Handlers[rule] == null) {
++						conn.RemoveMatch (rule.ToString ());
++						conn.Handlers.Remove (rule);
+ 					}
+ 				}
+ 				return;
+@@ -283,16 +289,28 @@
+ 
+ 		public Delegate GetHookupDelegate (EventInfo ei)
+ 		{
++			DynamicMethod hookupMethod = GetHookupMethod (ei);
++			Delegate d = hookupMethod.CreateDelegate (ei.EventHandlerType, this);
++			return d;
++		}
++
++		static Dictionary<EventInfo,DynamicMethod> hookup_methods = new Dictionary<EventInfo,DynamicMethod> ();
++		public static DynamicMethod GetHookupMethod (EventInfo ei)
++		{
++			DynamicMethod hookupMethod;
++			if (hookup_methods.TryGetValue (ei, out hookupMethod))
++				return hookupMethod;
++
+ 			if (ei.EventHandlerType.IsAssignableFrom (typeof (System.EventHandler)))
+ 				Console.Error.WriteLine ("Warning: Cannot yet fully expose EventHandler and its subclasses: " + ei.EventHandlerType);
+ 
+ 			MethodInfo declMethod = ei.EventHandlerType.GetMethod ("Invoke");
+ 
+-			DynamicMethod hookupMethod = GetHookupMethod (declMethod, sendSignalMethod, Mapper.GetInterfaceName (ei), ei.Name);
++			hookupMethod = GetHookupMethod (declMethod, sendSignalMethod, Mapper.GetInterfaceName (ei), ei.Name);
+ 
+-			Delegate d = hookupMethod.CreateDelegate (ei.EventHandlerType, this);
++			hookup_methods[ei] = hookupMethod;
+ 
+-			return d;
++			return hookupMethod;
+ 		}
+ 
+ 		public static DynamicMethod GetHookupMethod (MethodInfo declMethod, MethodInfo invokeMethod, string @interface, string member)
+@@ -312,6 +330,8 @@
+ 			return hookupMethod;
+ 		}
+ 
++		static MethodInfo getMethodFromHandleMethod = typeof (MethodBase).GetMethod ("GetMethodFromHandle", new Type[] {typeof (RuntimeMethodHandle)});
++
+ 		public static void GenHookupMethod (ILGenerator ilg, MethodInfo declMethod, MethodInfo invokeMethod, string @interface, string member, Type[] hookupParms)
+ 		{
+ 			Type retType = declMethod.ReturnType;
+@@ -321,7 +341,7 @@
+ 
+ 			//MethodInfo
+ 			ilg.Emit (OpCodes.Ldtoken, declMethod);
+-			ilg.Emit (OpCodes.Call, typeof (MethodBase).GetMethod ("GetMethodFromHandle"));
++			ilg.Emit (OpCodes.Call, getMethodFromHandleMethod);
+ 
+ 			//interface
+ 			ilg.Emit (OpCodes.Ldstr, @interface);
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/Connection.cs last-exit-5-patched/dbus-sharp/dbus-sharp/Connection.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/Connection.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/Connection.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -363,10 +363,15 @@
+ 		{
+ 			Signal signal = new Signal (msg);
+ 
+-			string matchRule = MessageFilter.CreateMatchRule (MessageType.Signal, signal.Path, signal.Interface, signal.Member);
++			//TODO: this is a hack, not necessary when MatchRule is complete
++			MatchRule rule = new MatchRule ();
++			rule.MessageType = MessageType.Signal;
++			rule.Interface = signal.Interface;
++			rule.Member = signal.Member;
++			rule.Path = signal.Path;
+ 
+-			if (Handlers.ContainsKey (matchRule)) {
+-				Delegate dlg = Handlers[matchRule];
++			Delegate dlg;
++			if (Handlers.TryGetValue (rule, out dlg)) {
+ 				//dlg.DynamicInvoke (GetDynamicValues (msg));
+ 
+ 				MethodInfo mi = dlg.Method;
+@@ -380,36 +385,14 @@
+ 			}
+ 		}
+ 
+-		internal Dictionary<string,Delegate> Handlers = new Dictionary<string,Delegate> ();
++		internal Dictionary<MatchRule,Delegate> Handlers = new Dictionary<MatchRule,Delegate> ();
+ 
+ 		//very messy
+-		void MaybeSendUnknownMethodError (MethodCall method_call)
++		internal void MaybeSendUnknownMethodError (MethodCall method_call)
+ 		{
+-			string errMsg = String.Format ("Method \"{0}\" with signature \"{1}\" on interface \"{2}\" doesn't exist", method_call.Member, method_call.Signature.Value, method_call.Interface);
+-
+-			if (!method_call.message.ReplyExpected) {
+-				if (!Protocol.Verbose)
+-					return;
+-
+-				Console.Error.WriteLine ();
+-				Console.Error.WriteLine ("Warning: Not sending Error message (" + errMsg + ") as reply because no reply was expected");
+-				Console.Error.WriteLine ();
+-				return;
+-			}
+-
+-			Error error = new Error ("org.freedesktop.DBus.Error.UnknownMethod", method_call.message.Header.Serial);
+-			error.message.Signature = new Signature (DType.String);
+-
+-			MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
+-			writer.connection = this;
+-			writer.Write (errMsg);
+-			error.message.Body = writer.ToArray ();
+-
+-			//TODO: we should be more strict here, but this fallback was added as a quick fix for p2p
+-			if (method_call.Sender != null)
+-				error.message.Header.Fields[FieldCode.Destination] = method_call.Sender;
+-
+-			Send (error.message);
++			Message msg = MessageHelper.CreateUnknownMethodError (method_call);
++			if (msg != null)
++				Send (msg);
+ 		}
+ 
+ 		//not particularly efficient and needs to be generalized
+@@ -417,6 +400,7 @@
+ 		{
+ 			//TODO: Ping and Introspect need to be abstracted and moved somewhere more appropriate once message filter infrastructure is complete
+ 
++			//FIXME: these special cases are slightly broken for the case where the member but not the interface is specified in the message
+ 			if (method_call.Interface == "org.freedesktop.DBus.Peer" && method_call.Member == "Ping") {
+ 				object[] pingRet = new object[0];
+ 				Message reply = MessageHelper.ConstructReplyFor (method_call, pingRet);
+@@ -435,9 +419,10 @@
+ 				int depth = method_call.Path.Decomposed.Length;
+ 				foreach (ObjectPath pth in RegisteredObjects.Keys) {
+ 					if (pth.Value == (method_call.Path.Value)) {
+-						intro.WriteType (RegisteredObjects[pth].GetType ());
++						ExportObject exo = (ExportObject)RegisteredObjects[pth];
++						intro.WriteType (exo.obj.GetType ());
+ 					} else {
+-						for (ObjectPath cur = pth ; cur.Value != null ; cur = cur.Parent) {
++						for (ObjectPath cur = pth ; cur != null ; cur = cur.Parent) {
+ 							if (cur.Value == method_call.Path.Value) {
+ 								string linkNode = pth.Decomposed[depth];
+ 								if (!linkNodes.Contains (linkNode)) {
+@@ -458,76 +443,16 @@
+ 				return;
+ 			}
+ 
+-			if (!RegisteredObjects.ContainsKey (method_call.Path)) {
+-				MaybeSendUnknownMethodError (method_call);
+-				return;
+-			}
+-
+-			object obj = RegisteredObjects[method_call.Path];
+-			Type type = obj.GetType ();
+-			//object retObj = type.InvokeMember (msg.Member, BindingFlags.InvokeMethod, null, obj, MessageHelper.GetDynamicValues (msg));
+-
+-			//TODO: there is no member name mapping for properties etc. yet
+-			MethodInfo mi = Mapper.GetMethod (type, method_call);
+-
+-			if (mi == null) {
++			BusObject bo;
++			if (RegisteredObjects.TryGetValue (method_call.Path, out bo)) {
++				ExportObject eo = (ExportObject)bo;
++				eo.HandleMethodCall (method_call);
++			} else {
+ 				MaybeSendUnknownMethodError (method_call);
+-				return;
+-			}
+-
+-			object retObj = null;
+-			try {
+-				object[] inArgs = MessageHelper.GetDynamicValues (method_call.message, mi.GetParameters ());
+-				retObj = mi.Invoke (obj, inArgs);
+-			} catch (TargetInvocationException e) {
+-				Exception ie = e.InnerException;
+-				//TODO: complete exception sending support
+-
+-				if (!method_call.message.ReplyExpected) {
+-					if (!Protocol.Verbose)
+-						return;
+-
+-					Console.Error.WriteLine ();
+-					Console.Error.WriteLine ("Warning: Not sending Error message (" + ie.GetType ().Name + ") as reply because no reply was expected by call to '" + (method_call.Interface + "." + method_call.Member) + "'");
+-					Console.Error.WriteLine ();
+-					return;
+-				}
+-
+-				Error error = new Error (Mapper.GetInterfaceName (ie.GetType ()), method_call.message.Header.Serial);
+-				error.message.Signature = new Signature (DType.String);
+-
+-				MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
+-				writer.connection = this;
+-				writer.Write (ie.Message);
+-				error.message.Body = writer.ToArray ();
+-
+-				//TODO: we should be more strict here, but this fallback was added as a quick fix for p2p
+-				if (method_call.Sender != null)
+-					error.message.Header.Fields[FieldCode.Destination] = method_call.Sender;
+-
+-				Send (error.message);
+-				return;
+-			}
+-
+-			if (method_call.message.ReplyExpected) {
+-				/*
+-				object[] retObjs;
+-
+-				if (retObj == null) {
+-					retObjs = new object[0];
+-				} else {
+-					retObjs = new object[1];
+-					retObjs[0] = retObj;
+-				}
+-
+-				Message reply = ConstructReplyFor (method_call, retObjs);
+-				*/
+-				Message reply = MessageHelper.ConstructReplyFor (method_call, mi.ReturnType, retObj);
+-				Send (reply);
+ 			}
+ 		}
+ 
+-		Dictionary<ObjectPath,object> RegisteredObjects = new Dictionary<ObjectPath,object> ();
++		Dictionary<ObjectPath,BusObject> RegisteredObjects = new Dictionary<ObjectPath,BusObject> ();
+ 
+ 		//FIXME: this shouldn't be part of the core API
+ 		//that also applies to much of the other object mapping code
+@@ -558,37 +483,28 @@
+ 
+ 		public void Register (string bus_name, ObjectPath path, object obj)
+ 		{
+-			Type type = obj.GetType ();
+-
+-			BusObject busObject = new BusObject (this, bus_name, path);
+-
+-			foreach (MemberInfo mi in Mapper.GetPublicMembers (type)) {
+-				EventInfo ei = mi as EventInfo;
+-
+-				if (ei == null)
+-					continue;
+-
+-				Delegate dlg = busObject.GetHookupDelegate (ei);
+-				ei.AddEventHandler (obj, dlg);
+-			}
++			ExportObject eo = new ExportObject (this, bus_name, path, obj);
++			eo.Registered = true;
+ 
+ 			//TODO: implement some kind of tree data structure or internal object hierarchy. right now we are ignoring the name and putting all object paths in one namespace, which is bad
+-			RegisteredObjects[path] = obj;
++			RegisteredObjects[path] = eo;
+ 		}
+ 
+ 		public object Unregister (string bus_name, ObjectPath path)
+ 		{
+ 			//TODO: make use of bus_name
+ 
+-			if (!RegisteredObjects.ContainsKey (path))
++			BusObject bo;
++
++			if (!RegisteredObjects.TryGetValue (path, out bo))
+ 				throw new Exception ("Cannot unregister " + path + " as it isn't registered");
+-			object obj = RegisteredObjects[path];
+ 
+ 			RegisteredObjects.Remove (path);
+ 
+-			//FIXME: complete unregistering including the handlers we added etc.
++			ExportObject eo = (ExportObject)bo;
++			eo.Registered = false;
+ 
+-			return obj;
++			return eo.obj;
+ 		}
+ 
+ 		//these look out of place, but are useful
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/ExportObject.cs last-exit-5-patched/dbus-sharp/dbus-sharp/ExportObject.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/ExportObject.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/ExportObject.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -10,8 +10,97 @@
+ 
+ namespace NDesk.DBus
+ {
+-	internal class ExportObject : BusObject, Peer
++	internal class ExportObject : BusObject //, Peer
+ 	{
++		public readonly object obj;
++
++		public ExportObject (Connection conn, string bus_name, ObjectPath object_path, object obj) : base (conn, bus_name, object_path)
++		{
++			this.obj = obj;
++		}
++
++		//maybe add checks to make sure this is not called more than once
++		//it's a bit silly as a property
++		public bool Registered
++		{
++			set {
++				Type type = obj.GetType ();
++
++				foreach (MemberInfo mi in Mapper.GetPublicMembers (type)) {
++					EventInfo ei = mi as EventInfo;
++
++					if (ei == null)
++						continue;
++
++					Delegate dlg = GetHookupDelegate (ei);
++
++					if (value)
++						ei.AddEventHandler (obj, dlg);
++					else
++						ei.RemoveEventHandler (obj, dlg);
++				}
++			}
++		}
++
++		public void HandleMethodCall (MethodCall method_call)
++		{
++			Type type = obj.GetType ();
++			//object retObj = type.InvokeMember (msg.Member, BindingFlags.InvokeMethod, null, obj, MessageHelper.GetDynamicValues (msg));
++
++			//TODO: there is no member name mapping for properties etc. yet
++			MethodInfo mi = Mapper.GetMethod (type, method_call);
++
++			if (mi == null) {
++				conn.MaybeSendUnknownMethodError (method_call);
++				return;
++			}
++
++			object retObj = null;
++			try {
++				object[] inArgs = MessageHelper.GetDynamicValues (method_call.message, mi.GetParameters ());
++				retObj = mi.Invoke (obj, inArgs);
++			} catch (TargetInvocationException e) {
++				if (!method_call.message.ReplyExpected)
++					return;
++
++				Exception ie = e.InnerException;
++				//TODO: complete exception sending support
++
++				Error error = new Error (Mapper.GetInterfaceName (ie.GetType ()), method_call.message.Header.Serial);
++				error.message.Signature = new Signature (DType.String);
++
++				MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
++				writer.connection = conn;
++				writer.Write (ie.Message);
++				error.message.Body = writer.ToArray ();
++
++				//TODO: we should be more strict here, but this fallback was added as a quick fix for p2p
++				if (method_call.Sender != null)
++					error.message.Header.Fields[FieldCode.Destination] = method_call.Sender;
++
++				conn.Send (error.message);
++				return;
++			}
++
++			if (method_call.message.ReplyExpected) {
++				/*
++				object[] retObjs;
++
++				if (retObj == null) {
++					retObjs = new object[0];
++				} else {
++					retObjs = new object[1];
++					retObjs[0] = retObj;
++				}
++
++				Message reply = ConstructReplyFor (method_call, retObjs);
++				*/
++				Message reply = MessageHelper.ConstructReplyFor (method_call, mi.ReturnType, retObj);
++				conn.Send (reply);
++			}
++		}
++
++		/*
+ 		public void Ping ()
+ 		{
+ 		}
+@@ -21,5 +110,6 @@
+ 			//TODO: implement this
+ 			return String.Empty;
+ 		}
++		*/
+ 	}
+ }
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/Mapper.cs last-exit-5-patched/dbus-sharp/dbus-sharp/Mapper.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/Mapper.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/Mapper.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -32,40 +32,68 @@
+ 			return argName;
+ 		}
+ 
+-		//this will be inefficient for larger interfaces, could be easily rewritten
+-		public static MemberInfo[] GetPublicMembers (Type type)
++		//TODO: these two methods are quite messy and need review
++		public static IEnumerable<MemberInfo> GetPublicMembers (Type type)
+ 		{
+-			List<MemberInfo> mis = new List<MemberInfo> ();
+-
++			//note that Type.GetInterfaces() returns all interfaces with flattened hierarchy
+ 			foreach (Type ifType in type.GetInterfaces ())
+-				mis.AddRange (GetPublicMembers (ifType));
++				foreach (MemberInfo mi in GetDeclaredPublicMembers (ifType))
++					yield return mi;
+ 
+-			//TODO: will DeclaredOnly for inherited members? inheritance support isn't widely used or tested in other places though
+ 			if (IsPublic (type))
+-				foreach (MemberInfo mi in type.GetMembers (BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+-					mis.Add (mi);
++				foreach (MemberInfo mi in GetDeclaredPublicMembers (type))
++					yield return mi;
++		}
+ 
+-			return mis.ToArray ();
++		static IEnumerable<MemberInfo> GetDeclaredPublicMembers (Type type)
++		{
++			if (IsPublic (type))
++				foreach (MemberInfo mi in type.GetMembers (BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
++					yield return mi;
+ 		}
+ 
+ 		//this method walks the interface tree in an undefined manner and returns the first match, or if no matches are found, null
++		//the logic needs review and cleanup
++		//TODO: unify member name mapping as is already done with interfaces and args
+ 		public static MethodInfo GetMethod (Type type, MethodCall method_call)
+ 		{
+ 			foreach (MemberInfo member in Mapper.GetPublicMembers (type)) {
+-				MethodInfo meth = member as MethodInfo;
++				//this could be made more efficient by using the given interface name earlier and avoiding walking through all public interfaces
++				if (method_call.Interface != null)
++					if (GetInterfaceName (member) != method_call.Interface)
++						continue;
+ 
+-				if (meth == null)
+-					continue;
++				MethodInfo meth = null;
++				Type[] inTypes = null;
+ 
+-				if (meth.Name != method_call.Member)
+-					continue;
++				if (member is PropertyInfo) {
++					PropertyInfo prop = member as PropertyInfo;
+ 
+-				//this could be made more efficient by using the given interface name earlier and avoiding walking through all public interfaces
+-				if (method_call.Interface != null)
+-					if (GetInterfaceName (meth) != method_call.Interface)
++					MethodInfo getter = prop.GetGetMethod (false);
++					MethodInfo setter = prop.GetSetMethod (false);
++
++					if (getter != null && "Get" + prop.Name == method_call.Member) {
++						meth = getter;
++						inTypes = Type.EmptyTypes;
++					} else if (setter != null && "Set" + prop.Name == method_call.Member) {
++						meth = setter;
++						inTypes = new Type[] {prop.PropertyType};
++					}
++				} else {
++					meth = member as MethodInfo;
++
++					if (meth == null)
+ 						continue;
+ 
+-				Type[] inTypes = Mapper.GetTypes (ArgDirection.In, meth.GetParameters ());
++					if (meth.Name != method_call.Member)
++						continue;
++
++					inTypes = Mapper.GetTypes (ArgDirection.In, meth.GetParameters ());
++				}
++
++				if (meth == null || inTypes == null)
++					continue;
++
+ 				Signature inSig = Signature.GetSig (inTypes);
+ 
+ 				if (inSig != method_call.Signature)
+@@ -145,11 +173,65 @@
+ 		{
+ 			return attrProvider.IsDefined (typeof (ObsoleteAttribute), true);
+ 		}
++
++		static bool AreEqual (Type[] a, Type[] b)
++		{
++			if (a.Length != b.Length)
++				return false;
++
++			for (int i = 0 ; i != a.Length ; i++)
++				if (a[i] != b[i])
++					return false;
++
++			return true;
++		}
++
++		//workaround for Mono bug #81035 (memory leak)
++		static List<Type> genTypes = new List<Type> ();
++		internal static Type GetGenericType (Type defType, Type[] parms)
++		{
++			foreach (Type genType in genTypes) {
++				if (genType.GetGenericTypeDefinition () != defType)
++					continue;
++
++				Type[] genParms = genType.GetGenericArguments ();
++
++				if (!AreEqual (genParms, parms))
++					continue;
++
++				return genType;
++			}
++
++			Type type = defType.MakeGenericType (parms);
++			genTypes.Add (type);
++			return type;
++		}
+ 	}
+ 
+ 	//TODO: this class is messy, move the methods somewhere more appropriate
+ 	static class MessageHelper
+ 	{
++		public static Message CreateUnknownMethodError (MethodCall method_call)
++		{
++			if (!method_call.message.ReplyExpected)
++				return null;
++
++			string errMsg = String.Format ("Method \"{0}\" with signature \"{1}\" on interface \"{2}\" doesn't exist", method_call.Member, method_call.Signature.Value, method_call.Interface);
++
++			Error error = new Error ("org.freedesktop.DBus.Error.UnknownMethod", method_call.message.Header.Serial);
++			error.message.Signature = new Signature (DType.String);
++
++			MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
++			writer.Write (errMsg);
++			error.message.Body = writer.ToArray ();
++
++			//TODO: we should be more strict here, but this fallback was added as a quick fix for p2p
++			if (method_call.Sender != null)
++				error.message.Header.Fields[FieldCode.Destination] = method_call.Sender;
++
++			return error.message;
++		}
++
+ 		//GetDynamicValues() should probably use yield eventually
+ 
+ 		public static object[] GetDynamicValues (Message msg, ParameterInfo[] parms)
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/MatchRule.cs last-exit-5-patched/dbus-sharp/dbus-sharp/MatchRule.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/MatchRule.cs	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/MatchRule.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -0,0 +1,230 @@
++// Copyright 2007 Alp Toker <alp@atoker.com>
++// This software is made available under the MIT License
++// See COPYING for details
++
++using System;
++using System.Text;
++using System.Collections.Generic;
++
++namespace NDesk.DBus
++{
++	//delegate void MessageHandler (Message msg);
++
++	class MatchRule
++	{
++		public MessageType? MessageType;
++		public string Interface;
++		public string Member;
++		public ObjectPath Path;
++		public string Sender;
++		public string Destination;
++		//workaround for old Mono: SortedDictionary was not available so we just use Dictionary
++		//public readonly SortedDictionary<int,string> Args = new SortedDictionary<int,string> ();
++		public readonly Dictionary<int,string> Args = new Dictionary<int,string> ();
++
++		public MatchRule ()
++		{
++		}
++
++		void Append (StringBuilder sb, string key, string value)
++		{
++			if (sb.Length != 0)
++				sb.Append (",");
++
++			sb.Append (key + "='");
++			sb.Append (value);
++			sb.Append ("'");
++		}
++
++		void AppendArg (StringBuilder sb, int index, string value)
++		{
++			Append (sb, "arg" + index, value);
++		}
++
++		public override bool Equals (object o)
++		{
++			MatchRule r = o as MatchRule;
++
++			if (r == null)
++				return false;
++
++			if (r.MessageType != MessageType)
++				return false;
++
++			if (r.Interface != Interface)
++				return false;
++
++			if (r.Member != Member)
++				return false;
++
++			//TODO: see why path comparison doesn't work
++			if (r.Path.Value != Path.Value)
++			//if (r.Path != Path)
++				return false;
++
++			if (r.Sender != Sender)
++				return false;
++
++			if (r.Destination != Destination)
++				return false;
++
++			//FIXME: do args
++
++			return true;
++		}
++
++		public override int GetHashCode ()
++		{
++			//FIXME: not at all optimal
++			return ToString ().GetHashCode ();
++		}
++
++		public override string ToString ()
++		{
++			StringBuilder sb = new StringBuilder ();
++
++			if (MessageType != null)
++				Append (sb, "type", MessageFilter.MessageTypeToString ((MessageType)MessageType));
++
++			if (Interface != null)
++				Append (sb, "interface", Interface);
++
++			if (Member != null)
++				Append (sb, "member", Member);
++
++			if (Path != null)
++				//Append (sb, "path", Path.ToString ());
++				Append (sb, "path", Path.Value);
++
++			if (Sender != null)
++				Append (sb, "sender", Sender);
++
++			if (Destination != null)
++				Append (sb, "destination", Destination);
++
++			if (Args != null) {
++				foreach (KeyValuePair<int,string> pair in Args)
++					AppendArg (sb, pair.Key, pair.Value);
++			}
++
++			return sb.ToString ();
++		}
++
++		//this is useful as a Predicate<Message> delegate
++		public bool Matches (Message msg)
++		{
++			if (MessageType != null)
++				if (msg.Header.MessageType != MessageType)
++					return false;
++
++			object value;
++
++			if (Interface != null)
++				if (msg.Header.Fields.TryGetValue (FieldCode.Interface, out value))
++					if ((string)value != Interface)
++						return false;
++
++			if (Member != null)
++				if (msg.Header.Fields.TryGetValue (FieldCode.Member, out value))
++					if ((string)value != Member)
++						return false;
++
++			if (Path != null)
++				if (msg.Header.Fields.TryGetValue (FieldCode.Path, out value))
++					//if ((ObjectPath)value != Path)
++					if (((ObjectPath)value).Value != Path.Value)
++						return false;
++
++			if (Sender != null)
++				if (msg.Header.Fields.TryGetValue (FieldCode.Sender, out value))
++					if ((string)value != Sender)
++						return false;
++
++			if (Destination != null)
++				if (msg.Header.Fields.TryGetValue (FieldCode.Destination, out value))
++					if ((string)value != Destination)
++						return false;
++			
++			//FIXME: do args
++
++			return true;
++		}
++
++		//this could be made more efficient
++		public static MatchRule Parse (string text)
++		{
++			MatchRule r = new MatchRule ();
++
++			foreach (string propStr in text.Split (',')) {
++				string[] parts = propStr.Split ('=');
++
++				if (parts.Length < 2)
++					throw new Exception ("No equals sign found");
++				if (parts.Length > 2)
++					throw new Exception ("Too many equals signs found");
++
++				string key = parts[0].Trim ();
++				string value = parts[1].Trim ();
++
++				if (!value.StartsWith ("'") || !value.EndsWith ("'"))
++					throw new Exception ("Too many equals signs found");
++
++				value = value.Substring (1, value.Length - 2);
++
++				if (key.StartsWith ("arg")) {
++					int argnum = Int32.Parse (key.Remove (0, "arg".Length));
++
++					if (argnum < 0 || argnum > 63)
++						throw new Exception ("arg match must be between 0 and 63 inclusive");
++
++					if (r.Args.ContainsKey (argnum))
++						return null;
++
++					r.Args[argnum] = value;
++
++					continue;
++				}
++
++				//TODO: more consistent error handling
++				switch (key) {
++					case "type":
++						if (r.MessageType != null)
++							return null;
++						r.MessageType = MessageFilter.StringToMessageType (value);
++						break;
++					case "interface":
++						if (r.Interface != null)
++							return null;
++						r.Interface = value;
++						break;
++					case "member":
++						if (r.Member != null)
++							return null;
++						r.Member = value;
++						break;
++					case "path":
++						if (r.Path != null)
++							return null;
++						r.Path = new ObjectPath (value);
++						break;
++					case "sender":
++						if (r.Sender != null)
++							return null;
++						r.Sender = value;
++						break;
++					case "destination":
++						if (r.Destination != null)
++							return null;
++						r.Destination = value;
++						break;
++					default:
++						if (Protocol.Verbose)
++							Console.Error.WriteLine ("Warning: Unrecognized match rule key: " + key);
++						break;
++				}
++			}
++
++			return r;
++		}
++	}
++}
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/Message.cs last-exit-5-patched/dbus-sharp/dbus-sharp/Message.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/Message.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/Message.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -30,8 +30,9 @@
+ 		public Signature Signature
+ 		{
+ 			get {
+-				if (Header.Fields.ContainsKey (FieldCode.Signature))
+-					return (Signature)Header.Fields[FieldCode.Signature];
++				object o;
++				if (Header.Fields.TryGetValue (FieldCode.Signature, out o))
++					return (Signature)o;
+ 				else
+ 					return Signature.Empty;
+ 			} set {
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/MessageFilter.cs last-exit-5-patched/dbus-sharp/dbus-sharp/MessageFilter.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/MessageFilter.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/MessageFilter.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -30,21 +30,29 @@
+ 			}
+ 		}
+ 
+-		public static string CreateMatchRule (MessageType mtype)
+-		{
+-			return "type='" + MessageTypeToString (mtype) + "'";
+-		}
+-
+-		public static string CreateMatchRule (MessageType type, ObjectPath path, string @interface, string member)
++		public static MessageType StringToMessageType (string text)
+ 		{
+-			return "type='" + MessageTypeToString (type) + "',path='" + path.Value + "',interface='" + @interface + "',member='" + member + "'";
++			switch (text)
++			{
++				case "method_call":
++					return MessageType.MethodCall;
++				case "method_return":
++					return MessageType.MethodReturn;
++				case "error":
++					return MessageType.Error;
++				case "signal":
++					return MessageType.Signal;
++				case "invalid":
++					return MessageType.Invalid;
++				default:
++					throw new Exception ("Bad MessageType: " + text);
++			}
+ 		}
+ 
+-		//TODO
+-		//this is useful as a Predicate<Message> delegate
+-		public bool Match (Message message)
++		//TODO: remove this -- left here for the benefit of the monitor tool for now
++		public static string CreateMatchRule (MessageType mtype)
+ 		{
+-			return false;
++			return "type='" + MessageTypeToString (mtype) + "'";
+ 		}
+ 	}
+ }
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/MessageReader.cs last-exit-5-patched/dbus-sharp/dbus-sharp/MessageReader.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/MessageReader.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/MessageReader.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -2,9 +2,6 @@
+ // This software is made available under the MIT License
+ // See COPYING for details
+ 
+-//defined by default, since this is not a controversial extension
+-#define PROTO_TYPE_SINGLE
+-
+ using System;
+ using System.Text;
+ using System.Collections.Generic;
+@@ -65,7 +62,9 @@
+ 				val = valStr;
+ 			} else if (type.IsGenericType && type.GetGenericTypeDefinition () == typeof (IDictionary<,>)) {
+ 				Type[] genArgs = type.GetGenericArguments ();
+-				Type dictType = typeof (Dictionary<,>).MakeGenericType (genArgs);
++				//Type dictType = typeof (Dictionary<,>).MakeGenericType (genArgs);
++				//workaround for Mono bug #81035 (memory leak)
++				Type dictType = Mapper.GetGenericType (typeof (Dictionary<,>), genArgs);
+ 				val = Activator.CreateInstance(dictType, new object[0]);
+ 				System.Collections.IDictionary idict = (System.Collections.IDictionary)val;
+ 				GetValueToDict (genArgs[0], genArgs[1], idict);
+@@ -143,7 +142,7 @@
+ 					val = vval;
+ 				}
+ 				break;
+-#if PROTO_TYPE_SINGLE
++#if !DISABLE_SINGLE
+ 				case DType.Single:
+ 				{
+ 					float vval;
+@@ -307,7 +306,7 @@
+ 				MarshalULong ((byte*)ret);
+ 		}
+ 
+-#if PROTO_TYPE_SINGLE
++#if !DISABLE_SINGLE
+ 		unsafe public void GetValue (out float val)
+ 		{
+ 			fixed (float* ret = &val)
+@@ -403,6 +402,15 @@
+ 			uint ln;
+ 			GetValue (out ln);
+ 
++			//TODO: more fast paths for primitive arrays
++			if (elemType == typeof (byte)) {
++				byte[] valb = new byte[ln];
++				Array.Copy (data, pos, valb, 0, (int)ln);
++				val = valb;
++				pos += (int)ln;
++				return;
++			}
++
+ 			//advance to the alignment of the element
+ 			ReadPad (Protocol.GetAlignment (Signature.TypeToDType (elemType)));
+ 
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/MessageWriter.cs last-exit-5-patched/dbus-sharp/dbus-sharp/MessageWriter.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/MessageWriter.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/MessageWriter.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -2,9 +2,6 @@
+ // This software is made available under the MIT License
+ // See COPYING for details
+ 
+-//defined by default, since this is not a controversial extension
+-#define PROTO_TYPE_SINGLE
+-
+ using System;
+ using System.Text;
+ using System.Collections.Generic;
+@@ -134,7 +131,7 @@
+ 			MarshalULong ((byte*)&val);
+ 		}
+ 
+-#if PROTO_TYPE_SINGLE
++#if !DISABLE_SINGLE
+ 		unsafe public void Write (float val)
+ 		{
+ 			MarshalUInt ((byte*)&val);
+@@ -246,7 +243,7 @@
+ 					Write ((ulong)val);
+ 				}
+ 				break;
+-#if PROTO_TYPE_SINGLE
++#if !DISABLE_SINGLE
+ 				case DType.Single:
+ 				{
+ 					Write ((float)val);
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/Protocol.cs last-exit-5-patched/dbus-sharp/dbus-sharp/Protocol.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/Protocol.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/Protocol.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -2,9 +2,6 @@
+ // This software is made available under the MIT License
+ // See COPYING for details
+ 
+-//defined by default, since this is not a controversial extension
+-#define PROTO_TYPE_SINGLE
+-
+ using System;
+ using System.Collections.Generic;
+ 
+@@ -123,7 +120,7 @@
+ 		NoAutoStart = 0x2,
+ 	}
+ 
+-	public class ObjectPath //: IComparable, IComparable<ObjectPath>, IEquatable<ObjectPath>
++	public sealed class ObjectPath //: IComparable, IComparable<ObjectPath>, IEquatable<ObjectPath>
+ 	{
+ 		public static readonly ObjectPath Root = new ObjectPath ("/");
+ 
+@@ -131,6 +128,9 @@
+ 
+ 		public ObjectPath (string value)
+ 		{
++			if (value == null)
++				throw new ArgumentNullException ("value");
++
+ 			this.Value = value;
+ 		}
+ 
+@@ -170,7 +170,7 @@
+ 		{
+ 			get {
+ 				if (Value == Root.Value)
+-					return new ObjectPath (null);
++					return null;
+ 
+ 				string par = Value.Substring (0, Value.LastIndexOf ('/'));
+ 				if (par == String.Empty)
+@@ -238,7 +238,7 @@
+ 				case DType.Int64:
+ 				case DType.UInt64:
+ 					return 8;
+-#if PROTO_TYPE_SINGLE
++#if !DISABLE_SINGLE
+ 				case DType.Single: //Not yet supported!
+ 					return 4;
+ #endif
+diff -Nur last-exit-5/dbus-sharp/dbus-sharp/Signature.cs last-exit-5-patched/dbus-sharp/dbus-sharp/Signature.cs
+--- last-exit-5/dbus-sharp/dbus-sharp/Signature.cs	2007-02-10 03:04:12.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/dbus-sharp/Signature.cs	2007-04-15 04:41:04.000000000 +0200
+@@ -284,7 +284,7 @@
+ 			int pos = 0;
+ 			Type ret = ToType (ref pos);
+ 			if (pos != data.Length)
+-				throw new Exception ("Sig parse error: at " + pos + " but should be at " + data.Length);
++				throw new Exception ("Signature '" + Value + "' is not a single complete type");
+ 			return ret;
+ 		}
+ 
+@@ -355,7 +355,7 @@
+ 				return TypeCodeToDType (Type.GetTypeCode (type));
+ 
+ 			if (type.IsEnum)
+-				return TypeToDType (type.GetElementType ());
++				return TypeToDType (Enum.GetUnderlyingType (type));
+ 
+ 			//needs work
+ 			if (type.IsArray)
+@@ -451,7 +451,9 @@
+ 						Type valueType = ToType (ref pos);
+ 						//skip over the }
+ 						pos++;
+-						return typeof (IDictionary<,>).MakeGenericType (new Type[] {keyType, valueType});
++						//return typeof (IDictionary<,>).MakeGenericType (new Type[] {keyType, valueType});
++						//workaround for Mono bug #81035 (memory leak)
++						return Mapper.GetGenericType (typeof (IDictionary<,>), new Type[] {keyType, valueType});
+ 					} else {
+ 						return ToType (ref pos).MakeArrayType ();
+ 					}
+diff -Nur last-exit-5/dbus-sharp/README last-exit-5-patched/dbus-sharp/README
+--- last-exit-5/dbus-sharp/README	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/dbus-sharp/README	2007-04-15 04:41:04.000000000 +0200
+@@ -0,0 +1,37 @@
++D-Bus for .NET
++==============
++
++This is a C# implementation of D-Bus. It's often referred to as "managed
++D-Bus" to avoid confusion with existing bindings (which wrap libdbus).
++
++See http://www.ndesk.org/DBusSharp
++
++D-Bus is an inter-process communication framework that lets applications
++interface with the system event bus as well as allowing them to talk to
++one another in a peer-to-peer configuration.
++
++See http://www.freedesktop.org/wiki/Software/dbus for general
++information on the D-Bus IPC mechanism.
++
++This software is under active development but is already used by a wide
++range of applications for tasks as simple as maintaining a single
++instance of the GUI to whole instant messaging frameworks and hardware
++detection APIs.
++
++It provides a tested, high-performance bridge to and from all systems
++that are exposed via D-Bus, regardless of programming language, UI
++toolkit or license. The source code is MIT X11 licensed (Free
++Software/Open Source), allowing integration into other projects with
++very few restrictions.
++
++The code was written and is maintained by Alp Toker <alp@atoker.com>
++
++It is a clean-room implementation based on the D-Bus Specification
++Version 0.11 and study of the wire protocol of existing tools.
++
++It aims for compatibility with Mono and Microsoft .NET frameworks
++supporting the 2.0 profile. Backward compatibility with 1.0 will not be
++a consideration.
++
++-- 
++Alp Toker <alp@atoker.com>
+diff -Nur last-exit-5/liblast-exit/.cvsignore last-exit-5-patched/liblast-exit/.cvsignore
+--- last-exit-5/liblast-exit/.cvsignore	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/liblast-exit/.cvsignore	2006-03-23 13:49:38.000000000 +0100
+@@ -0,0 +1,2 @@
++Makefile
++Makefile.in
+diff -Nur last-exit-5/liblast-exit/lastexit.xml last-exit-5-patched/liblast-exit/lastexit.xml
+--- last-exit-5/liblast-exit/lastexit.xml	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/liblast-exit/lastexit.xml	2006-08-29 22:27:30.000000000 +0200
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="UTF-8" ?>
++
++<node name="/org/gnome/LastExit">
++	<interface name="org.gnome.LastExit.interface">
++		<annotation name="org.freedesktop.DBus.GLib.CSymbol" value="lastexit"/>
++		<method name="change_station">
++			<arg type="s"/>
++		</method>
++		<method name="focus_instance">
++		</method>
++	</interface>
++</node>
+diff -Nur last-exit-5/liblast-exit/last-fm.c last-exit-5-patched/liblast-exit/last-fm.c
+--- last-exit-5/liblast-exit/last-fm.c	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/liblast-exit/last-fm.c	2007-01-06 14:38:03.000000000 +0100
+@@ -0,0 +1,152 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
++/*
++ *  Authors: Iain Holmes <iain@gnome.org>
++ *
++ *  Copyright 2005 Iain Holmes
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program; if not, write to the Free Software
++ *  Foundation, Inc., 59 Temple Street #330, Boston, MA 02111-1307, USA.
++ *
++ */
++
++#include <string.h>
++
++#include <last-fm.h>
++
++enum {
++	LAST_SIGNAL
++};
++
++static GstStaticPadTemplate sink_factory =
++GST_STATIC_PAD_TEMPLATE ("sink",
++			 GST_PAD_SINK,
++			 GST_PAD_ALWAYS,
++			 GST_STATIC_CAPS_ANY);
++static GstStaticPadTemplate src_factory =
++GST_STATIC_PAD_TEMPLATE ("src",
++			 GST_PAD_SRC,
++			 GST_PAD_ALWAYS,
++			 GST_STATIC_CAPS_ANY);
++
++GST_DEBUG_CATEGORY_STATIC (last_fm_debug);
++#define GST_CAT_DEFAULT last_fm_debug
++
++static GstElementDetails last_fm_details = {
++	"Last FM filter",
++	"Filter",
++	"Filters the SYNC tag out of Last.FM streams",
++	"Iain Holmes <iain@gnome.org>",
++};
++
++static GstElementClass *parent_class = NULL;
++
++static gboolean
++last_fm_get_unit_size (GstBaseTransform *base,
++		       GstCaps *caps,
++		       guint *size)
++{
++	*size = 4096;
++	g_print ("Getting unit size\n");
++	return TRUE;
++}
++
++static GstFlowReturn
++last_fm_transform (GstBaseTransform *btrans,
++		   GstBuffer *inbuf,
++		   GstBuffer *outbuf)
++{
++	char *data = (char *) GST_BUFFER_DATA (inbuf);
++	char *loc;
++
++	loc = strstr (data, "SYNC");
++	if (loc == NULL) {
++		memcpy (GST_BUFFER_DATA (outbuf), data, GST_BUFFER_SIZE (outbuf));
++		gst_buffer_stamp (outbuf, inbuf);
++	} else {
++		g_print ("Got sync at %p offset %d\n", loc, (int) (loc - data));
++		memcpy (GST_BUFFER_DATA (outbuf), data, GST_BUFFER_SIZE (outbuf));
++		gst_buffer_stamp (outbuf, inbuf);
++	}
++		
++	return GST_FLOW_OK;
++}
++
++
++{
++	/* 
++	 * Explicitly load the plugins.
++	 * This is to avoid Mono JIT loosing the ability to catch SEGV.
++	 * http://bugzilla.gnome.org/show_bug.cgi?id=391777
++	*/
++	GstElement *element = gst_parse_launch("audioconvert", NULL);
++	element = gst_parse_launch("audioconvert", NULL);
++	gst_object_unref(element);
++
++	GstElementClass *element_class = GST_ELEMENT_CLASS (klass);
++
++	gst_element_class_add_pad_template (element_class, gst_static_pad_template_get (&src_factory));
++	gst_element_class_add_pad_template (element_class, gst_static_pad_template_get (&sink_factory));
++	gst_element_class_set_details (element_class, &last_fm_details);
++}
++
++static void
++last_fm_class_init (LastFMClass *klass)
++{
++	GObjectClass *object_class;
++	GstElementClass *element_class;
++	GstBaseTransformClass *transform_class;
++
++	object_class = (GObjectClass *) klass;
++	element_class = (GstElementClass *) klass;
++	transform_class = (GstBaseTransformClass *) klass;
++
++	parent_class = g_type_class_ref (GST_TYPE_BASE_TRANSFORM);
++
++/* 	transform_class->get_unit_size = last_fm_get_unit_size; */
++	transform_class->transform = last_fm_transform;
++
++	GST_DEBUG_CATEGORY_INIT (last_fm_debug, "last-fm", 0,
++				 "Last Exit element");
++}
++
++static void
++last_fm_init (LastFM *lastfm)
++{
++	/* Should do something? */
++}
++
++GType
++last_fm_get_type (void)
++{
++	static GType type = 0;
++
++	if (!type) {
++		static const GTypeInfo info = {
++			sizeof (LastFMClass),
++			(GBaseInitFunc) last_fm_base_init,
++			NULL,
++			(GClassInitFunc) last_fm_class_init,
++			NULL,
++			NULL,
++			sizeof (LastFM),
++			0,
++			(GInstanceInitFunc) last_fm_init,
++		};
++
++		type = g_type_register_static (GST_TYPE_BASE_TRANSFORM,
++					       "LastFM", &info, 0);
++	}
++
++	return type;
++}
+diff -Nur last-exit-5/liblast-exit/last-fm.h last-exit-5-patched/liblast-exit/last-fm.h
+--- last-exit-5/liblast-exit/last-fm.h	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/liblast-exit/last-fm.h	2006-03-22 01:38:37.000000000 +0100
+@@ -0,0 +1,53 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
++/*
++ *  Authors: Iain Holmes <iain@gnome.org>
++ *
++ *  Copyright 2006 Iain Holmes
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program; if not, write to the Free Software
++ *  Foundation, Inc., 59 Temple Street #330, Boston, MA 02111-1307, USA.
++ *
++ */
++
++#ifndef __LAST_FM_H__
++#define __LAST_FM_H__
++
++#include <gst/gst.h>
++#include <gst/base/gstbasetransform.h>
++
++G_BEGIN_DECLS
++
++#define LAST_FM_TYPE (last_fm_get_type ())
++#define LAST_FM(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), LAST_FM_TYPE, LastFM))
++#define LAST_FM_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), LAST_FM_TYPE, LastFMClass))
++
++typedef struct _LastFM LastFM;
++typedef struct _LastFMClass LastFMClass;
++typedef struct _LastFMPrivate LastFMPrivate;
++
++struct _LastFM {
++	GstBaseTransform element;
++
++	LastFMPrivate *priv;
++};
++
++struct _LastFMClass {
++	GstBaseTransformClass parent_class;
++};
++
++GType last_fm_get_type (void);
++
++G_END_DECLS
++
++#endif
+diff -Nur last-exit-5/MAINTAINERS last-exit-5-patched/MAINTAINERS
+--- last-exit-5/MAINTAINERS	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/MAINTAINERS	2006-10-09 01:33:02.000000000 +0200
+@@ -0,0 +1,2 @@
++Iain Holmes <iain@gnome.org>
++Brandon Hale <brandon@smarterits.com>
+diff -Nur last-exit-5/po/ar.po last-exit-5-patched/po/ar.po
+--- last-exit-5/po/ar.po	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/po/ar.po	2007-04-14 20:00:13.000000000 +0200
+@@ -0,0 +1,564 @@
++# Arabic translations for PACKAGE package.
++# Copyright (C) 2007 THE PACKAGE'S COPYRIGHT HOLDER
++# This file is distributed under the same license as the PACKAGE package.
++# Automatically generated, 2007.
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: Arabic\n"
++"Report-Msgid-Bugs-To: \n"
++"POT-Creation-Date: 2007-04-14 18:24+0100\n"
++"PO-Revision-Date: 2007-04-14 18:46+0100\n"
++"Last-Translator: Djihed Afifi <djihed@gmail.com>\n"
++"Language-Team: Arabeyes <doc@arabeyes.org>\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"X-Poedit-Language: Arabic\n"
++
++#: ../data/glade/FindStation.glade.h:1
++#: ../data/glade/InfoWindow.glade.h:1
++#, fuzzy
++msgid "    "
++msgstr "    "
++
++#: ../data/glade/FindStation.glade.h:2
++#, fuzzy
++msgid "<b>Results:</b>"
++msgstr "النتائج"
++
++#: ../data/glade/FindStation.glade.h:3
++#, fuzzy
++msgid "<b>Search for:</b>"
++msgstr "ا_بحث عن:"
++
++#: ../data/glade/FindStation.glade.h:4
++#, fuzzy
++msgid "Find Station"
++msgstr "كولدج ستيشن"
++
++#: ../data/glade/FirstRunDialog.glade.h:1
++#, fuzzy
++msgid "Account Name:"
++msgstr "إسم الحساب:"
++
++#: ../data/glade/FirstRunDialog.glade.h:2
++msgid ""
++"Before you can use Last Exit, you need to have a Last.fm\n"
++"account. Please enter the account name and password\n"
++"below."
++msgstr ""
++
++#: ../data/glade/FirstRunDialog.glade.h:5
++#, fuzzy
++msgid "Don't have a Last.FM account?"
++msgstr "لا تستعمل الكرة الأخيرة"
++
++#: ../data/glade/FirstRunDialog.glade.h:6
++#: ../data/glade/Preferences.glade.h:8
++#, fuzzy
++msgid "Password:"
++msgstr "كلمة المرور:"
++
++#: ../data/glade/FirstRunDialog.glade.h:7
++#: ../src/FirstRunDialog.cs:61
++#, fuzzy
++msgid "Start Player"
++msgstr "لم يمكن تشعيل عازف الأقراص المدمج"
++
++#: ../data/glade/FirstRunDialog.glade.h:8
++msgid "dialog2"
++msgstr ""
++
++#: ../data/glade/InfoWindow.glade.h:2
++#, fuzzy
++msgid "<b>Album:</b>"
++msgstr "الألبوم:"
++
++#: ../data/glade/InfoWindow.glade.h:3
++#, fuzzy
++msgid "<b>Artist:</b>"
++msgstr "ال_فنان:"
++
++#: ../data/glade/InfoWindow.glade.h:4
++#, fuzzy
++msgid "<b>Song:</b>"
++msgstr "الأغنية"
++
++#: ../data/glade/InfoWindow.glade.h:5
++#: ../data/glade/TagDialog.glade.h:5
++#, fuzzy
++msgid "dialog1"
++msgstr "dialog1"
++
++#: ../data/glade/PlayerWindow.glade.h:1
++#, fuzzy
++msgid "Apply tags"
++msgstr "HTML - علامات"
++
++#: ../data/glade/PlayerWindow.glade.h:2
++#, fuzzy
++msgid "Hate!"
++msgstr "الحقد"
++
++#: ../data/glade/PlayerWindow.glade.h:3
++#, fuzzy
++msgid "Information"
++msgstr "معلومات"
++
++#: ../data/glade/PlayerWindow.glade.h:4
++#, fuzzy
++msgid "Love!"
++msgstr "حب"
++
++#: ../data/glade/PlayerWindow.glade.h:5
++#, fuzzy
++msgid "Play the next song"
++msgstr "بدأ عزف الأغنية التالية"
++
++#: ../data/glade/PlayerWindow.glade.h:6
++#, fuzzy
++msgid "Preferences"
++msgstr "تفضيلات"
++
++#: ../data/glade/PlayerWindow.glade.h:7
++msgid "Switch music playback on or off"
++msgstr ""
++
++#: ../data/glade/PlayerWindow.glade.h:8
++#, fuzzy
++msgid "Write a journal entry"
++msgstr "ادخال كتابة تنبئيا"
++
++#: ../data/glade/PlayerWindow.glade.h:9
++#, fuzzy
++msgid "_Listening to:"
++msgstr "مسجل ل %s"
++
++#: ../data/glade/Preferences.glade.h:1
++#, fuzzy
++msgid "<b>Last.fm Account</b>"
++msgstr "عدّل معلومات الحساب"
++
++#: ../data/glade/Preferences.glade.h:2
++#, fuzzy
++msgid "<b>Recommendation Radio</b>"
++msgstr "زر مشع"
++
++#: ../data/glade/Preferences.glade.h:3
++#, fuzzy
++msgid "<b>User Interface</b>"
++msgstr "<b>واجهة المستخدم</b>"
++
++#: ../data/glade/Preferences.glade.h:4
++#, fuzzy
++msgid "Create an account"
++msgstr "أنشئ الحساب"
++
++#: ../data/glade/Preferences.glade.h:5
++#, fuzzy
++msgid "Join Last Exit group"
++msgstr "اختر المستخدمين لضمّهم إلى هذه المجموعة:"
++
++#: ../data/glade/Preferences.glade.h:6
++#, fuzzy
++msgid "Last Exit Preferences"
++msgstr "حجم نافذة التفضيلات"
++
++#: ../data/glade/Preferences.glade.h:7
++#, fuzzy
++msgid "Obscure"
++msgstr "غامض"
++
++#: ../data/glade/Preferences.glade.h:9
++#, fuzzy
++msgid "Popular"
++msgstr "شعبي"
++
++#: ../data/glade/Preferences.glade.h:10
++#, fuzzy
++msgid "Show notification on song change"
++msgstr "إظهار معلومات عن المعزوفة المنتقات"
++
++#: ../data/glade/Preferences.glade.h:11
++#, fuzzy
++msgid "User Name:"
++msgstr "إسم المستخدم"
++
++#: ../data/glade/TagDialog.glade.h:1
++#, fuzzy
++msgid "<span weight=\"bold\">Tag:</span>"
++msgstr "<span weight=\"bold\">تنبيهات</span>"
++
++#: ../data/glade/TagDialog.glade.h:2
++#, fuzzy
++msgid ""
++"Track\n"
++"Album\n"
++"Artist"
++msgstr "تعقب حالة الرسالة..."
++
++#: ../data/last-exit.desktop.in.h:1
++#, fuzzy
++msgid "Last-Exit"
++msgstr "إنهاء البرنامج"
++
++#: ../data/last-exit.desktop.in.h:2
++#, fuzzy
++msgid "Last.fm player"
++msgstr "قارئ القرص"
++
++#: ../data/last-exit.schemas.in.h:1
++#, fuzzy
++msgid "Account name"
++msgstr "إسم الحساب"
++
++#: ../data/last-exit.schemas.in.h:2
++#, fuzzy
++msgid "Password"
++msgstr "كلمة السّر"
++
++#: ../data/last-exit.schemas.in.h:3
++#, fuzzy
++msgid "Password for the Last.FM account"
++msgstr "غير كلمة مرور حساب إكستشينج"
++
++#: ../data/last-exit.schemas.in.h:4
++#, fuzzy
++msgid "Recommendation Level"
++msgstr "مستوى واحد"
++
++#: ../data/last-exit.schemas.in.h:5
++msgid "Recommended radio setting (from 0-100)"
++msgstr ""
++
++#: ../data/last-exit.schemas.in.h:6
++msgid "Set to true if the first run dialog should be shown"
++msgstr ""
++
++#: ../data/last-exit.schemas.in.h:7
++#, fuzzy
++msgid "Show Notifications"
++msgstr "تمكين التنبيهات"
++
++#: ../data/last-exit.schemas.in.h:8
++#, fuzzy
++msgid "Show first run dialog"
++msgstr "إظهار حوار الشّريط لتشغيل التّطبيقات"
++
++#: ../data/last-exit.schemas.in.h:9
++msgid "The Last.FM account name that we should use"
++msgstr ""
++
++#: ../data/last-exit.schemas.in.h:10
++#, fuzzy
++msgid "Volume"
++msgstr "شدة الصوت"
++
++#: ../data/last-exit.schemas.in.h:11
++#, fuzzy
++msgid "Volume setting (from 0-100)"
++msgstr "جاري إعداد إدارة الكتل المنطقيّة:"
++
++#: ../data/last-exit.schemas.in.h:12
++msgid "Whether Last-Exit shows notifications when the song changes"
++msgstr ""
++
++#: ../data/lastfm.schemas.in.h:1
++msgid "Is the Last-FM handler enabled"
++msgstr ""
++
++#: ../data/lastfm.schemas.in.h:2
++#, fuzzy
++msgid "Run the command in a terminal"
++msgstr "تشغيل الأمر في شاشة طرفية"
++
++#: ../data/lastfm.schemas.in.h:3
++#, fuzzy
++msgid "The command used to handle \"lastfm\" URLs, if enabled."
++msgstr "الأمر المستخدم لمعالجة عناوين \"aim\"، في حال تمكينها."
++
++#: ../data/lastfm.schemas.in.h:4
++#, fuzzy
++msgid "The handler for \"lastfm\" URLs"
++msgstr "العامل الخاص لعناوين \"note://\""
++
++#: ../data/lastfm.schemas.in.h:5
++#, fuzzy
++msgid "True if the command specified in the \"command\" key should handle \"lastfm\" URLs."
++msgstr "إضبط لـtrue إذا كان على الأمر المحدّد في المفتاح \"command\" معالجة عناوين \"aim\"."
++
++#: ../data/lastfm.schemas.in.h:6
++#, fuzzy
++msgid "True if the command used to handle \"lastfm\" URLs should be run in a terminal."
++msgstr "إضبط لـtrue إذا كان على الأمر المستخدم لمعالجة هذا النوع من العناوين العمل في شاشة طرفية."
++
++#: ../src/About.cs:32
++#, fuzzy
++msgid "Last Exit"
++msgstr "إنهاء البرنامج"
++
++#: ../src/About.cs:35
++#, fuzzy
++msgid "Copyright © 2006 Iain Holmes"
++msgstr "حقوق النسخ © 2006 Travis Watkins"
++
++#: ../src/About.cs:38
++msgid "A Last.fm radio player"
++msgstr ""
++
++#: ../src/About.cs:45
++#, fuzzy
++msgid "Iain Holmes <iain@gnome.org>"
++msgstr ""
++"مسجل أصوت لجنوم\n"
++" gnome-media@gnome.org"
++
++#: ../src/About.cs:46
++msgid "Baris Cicek <baris@teamforce.name.tr>"
++msgstr ""
++
++#: ../src/About.cs:47
++msgid "Brandon Hale <brandon@ubuntu.com>"
++msgstr ""
++
++#: ../src/About.cs:60
++#, fuzzy
++msgid "translator-credits"
++msgstr ""
++"فريق عربآيز للترجمة http://www.arabeyes.org :\n"
++"جهاد عفيفي\t<djihed@gmail.com>\n"
++"يوسف رفه\t<yousef@raffah.com>"
++
++#: ../src/Actions.cs:35
++#, fuzzy
++msgid "Show _Window"
++msgstr "أظهر النافذة"
++
++#: ../src/Actions.cs:38
++#, fuzzy
++msgid "_Play"
++msgstr "_عزف"
++
++#: ../src/Actions.cs:41
++#, fuzzy
++msgid "_Next"
++msgstr "ال_تالي"
++
++#: ../src/Actions.cs:44
++#, fuzzy
++msgid "_About"
++msgstr "_حول"
++
++#: ../src/Actions.cs:47
++#, fuzzy
++msgid "_Preferences"
++msgstr "ت_فضيلات"
++
++#: ../src/Actions.cs:50
++#, fuzzy
++msgid "_Love Song"
++msgstr "خصائص الأغنية"
++
++#: ../src/Actions.cs:53
++#, fuzzy
++msgid "_Hate Song"
++msgstr "خصائص الأغنية"
++
++#: ../src/FindStation.cs:75
++#, fuzzy
++msgid "Find A Station"
++msgstr "كولدج ستيشن"
++
++#: ../src/FindStation.cs:105
++#, fuzzy
++msgid "Cancel"
++msgstr "إلغي"
++
++#: ../src/FindStation.cs:106
++#, fuzzy
++msgid "Change Station"
++msgstr "كولدج ستيشن"
++
++#: ../src/FindStation.cs:189
++msgid "Music that sounds like"
++msgstr ""
++
++#: ../src/FindStation.cs:190
++msgid "Music that is tagged as"
++msgstr ""
++
++#: ../src/FindStation.cs:191
++#, fuzzy
++msgid "A neighbours station"
++msgstr "كولدج ستيشن"
++
++#: ../src/FindStation.cs:192
++#, fuzzy
++msgid "A users station"
++msgstr "كولدج ستيشن"
++
++#: ../src/FindStation.cs:193
++#, fuzzy
++msgid "Music from fans of"
++msgstr "خلع موسيقاك من أقراصك المدمجة"
++
++#: ../src/FindStation.cs:194
++#, fuzzy
++msgid "A group station"
++msgstr "كولدج ستيشن"
++
++#: ../src/FindStation.cs:591
++#, fuzzy
++msgid "Artist not found"
++msgstr "لم يعثر على المستخدم"
++
++#: ../src/FindStation.cs:600
++#, fuzzy, csharp-format
++msgid "{0} is not streamable."
++msgstr "ليس عليه علم"
++
++#: ../src/FindStation.cs:609
++#, csharp-format
++msgid "Music that sounds like <b>{0}</b>"
++msgstr ""
++
++#: ../src/FindStation.cs:614
++#, fuzzy
++msgid "Featuring: \n"
++msgstr "العرض"
++
++#: ../src/FindStation.cs:630
++#, fuzzy, csharp-format
++msgid " and {0} other."
++msgid_plural " and {0} others."
++msgstr[0] "ترميزات أخرى"
++msgstr[1] ""
++
++#: ../src/FirstRunDialog.cs:51
++#, fuzzy
++msgid "Last.fm Account Details"
++msgstr "تفاصيل حساب مستخدم دروبال %s"
++
++#: ../src/FirstRunDialog.cs:64
++msgid "Sign up for Last.fm"
++msgstr ""
++
++#: ../src/PlayerWindow.cs:275
++#, fuzzy
++msgid "Neighbour Station"
++msgstr "كولدج ستيشن"
++
++#: ../src/PlayerWindow.cs:278
++#, fuzzy
++msgid "Personal Station"
++msgstr "كولدج ستيشن"
++
++#: ../src/PlayerWindow.cs:282
++#, fuzzy
++msgid "Favourites Station"
++msgstr "كولدج ستيشن"
++
++#: ../src/PlayerWindow.cs:286
++#, fuzzy
++msgid "Recommended Music Station"
++msgstr "المحطة الجوية البحرية"
++
++#: ../src/PlayerWindow.cs:289
++#, fuzzy
++msgid "Other Station..."
++msgstr "كولدج ستيشن"
++
++#: ../src/PlayerWindow.cs:718
++#, csharp-format
++msgid "<span size=\"smaller\">From <a href=\"{0}\">{1}</a> by <a href=\"{2}\">{3}</a></span>"
++msgstr ""
++
++#: ../src/PlayerWindow.cs:720
++#, csharp-format
++msgid "<span size=\"smaller\">By <a href=\"{0}\">{1}</a></span>"
++msgstr ""
++
++#: ../src/PlayerWindow.cs:722
++#, csharp-format
++msgid "<span size=\"smaller\">From <a href=\"{0}\">{1}</a></span>"
++msgstr ""
++
++#: ../src/PlayerWindow.cs:729
++#, fuzzy, csharp-format
++msgid "{0} by {1}"
++msgstr "قبل يوم %B %d، %Y، %l:%M %p"
++
++#: ../src/PlayerWindow.cs:756
++msgid "There is not enough content to play this station."
++msgstr ""
++
++#: ../src/PlayerWindow.cs:760
++msgid "This group does not have enough members for radio."
++msgstr ""
++
++#: ../src/PlayerWindow.cs:764
++msgid "This artist does not have enough fans for radio."
++msgstr ""
++
++#: ../src/PlayerWindow.cs:768
++msgid "This item is not available for streaming."
++msgstr ""
++
++#: ../src/PlayerWindow.cs:772
++msgid "This feature is only available to subscribers."
++msgstr ""
++
++#: ../src/PlayerWindow.cs:776
++msgid "There are not enough neighbours for this radio."
++msgstr ""
++
++#: ../src/PlayerWindow.cs:780
++#, fuzzy
++msgid "This stream has stopped."
++msgstr "لهذا الحدث منبّهات"
++
++#: ../src/PlayerWindow.cs:784
++#, fuzzy
++msgid "There is no such a group."
++msgstr "%s: لا توجد عملّية حالياً"
++
++#: ../src/PlayerWindow.cs:788
++#, fuzzy
++msgid "There is no such an artist."
++msgstr "%s: لا توجد عملّية حالياً"
++
++#: ../src/TagDialog.cs:44
++#, fuzzy
++msgid "Tag A Song"
++msgstr "خصائص الأغنية"
++
++#: ../src/TagDialog.cs:87
++#: ../src/TagDialog.cs:91
++#: ../src/TagDialog.cs:95
++#, fuzzy, csharp-format
++msgid "Tag '{0}'"
++msgstr "الشّارة"
++
++#: ../src/TrayIcon.cs:184
++#, fuzzy, csharp-format
++msgid "<span weight=\"bold\">{0}</span>"
++msgstr "<span weight=\"bold\">تنبيهات</span>"
++
++#: ../src/TrayIcon.cs:190
++#: ../src/TrayIcon.cs:192
++#, fuzzy, csharp-format
++msgid "<span size=\"smaller\">By <span weight=\"bold\">{0}</span></span>"
++msgstr "<span weight=\"bold\" size=\"x-large\">اختبار...</span>"
++
++#: ../src/TrayIcon.cs:208
++#, fuzzy
++msgid " by "
++msgstr "قبل يوم %B %d، %Y، %l:%M %p"
++
++#. Wait til cover is set before we notify :)
++#: ../src/TrayIcon.cs:214
++#, fuzzy
++msgid "Now playing"
++msgstr "جاري عزف"
++
+diff -Nur last-exit-5/po/ChangeLog last-exit-5-patched/po/ChangeLog
+--- last-exit-5/po/ChangeLog	2007-04-11 05:45:19.000000000 +0200
++++ last-exit-5-patched/po/ChangeLog	2007-04-15 12:40:31.000000000 +0200
+@@ -1,3 +1,13 @@
++2007-04-15  Daniel Nylander <po@danielnylander.se>
++
++	* sv.po: Updated Swedish translation.
++	* POTFILES.in: Added missing file.
++
++2007-04-14  Djihed Afifi <djihed@gmail.com> 
++
++	* ar.po: Added Arabic Translation.
++	* LINGUAS: Added ar.
++
+ 2007-04-09  Baris Cicek <baris@teamforce.name.tr>
+ 
+ 	* tr.po: Added Turkish translation
+diff -Nur last-exit-5/po/pl.po last-exit-5-patched/po/pl.po
+--- last-exit-5/po/pl.po	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/po/pl.po	2007-04-16 18:12:35.000000000 +0200
+@@ -0,0 +1,521 @@
++# Polish translation for last-exit
++# Copyright (C) 2007 Free Software Foundation, Inc.
++# This file is distributed under the same license as the last-exit package.
++#
++# Łukasz Jernaś <deejay1@srem.org>, 2007.
++msgid ""
++msgstr ""
++"Project-Id-Version: pl\n"
++"Report-Msgid-Bugs-To: \n"
++"POT-Creation-Date: 2007-04-16 17:55+0200\n"
++"PO-Revision-Date: 2007-04-16 18:11+0200\n"
++"Last-Translator: Łukasz Jernaś <deejay1@srem.org>\n"
++"Language-Team: polski <pl@li.org>\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Plural-Forms:  nplurals=2; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
++"X-Generator: KBabel 1.11.4\n"
++
++#: ../data/glade/FindStation.glade.h:1 ../data/glade/InfoWindow.glade.h:1
++msgid "    "
++msgstr "    "
++
++#: ../data/glade/FindStation.glade.h:2
++msgid "<b>Results:</b>"
++msgstr "<b>Wyniki:</b>"
++
++#: ../data/glade/FindStation.glade.h:3
++msgid "<b>Search for:</b>"
++msgstr "<b>Wyszukiwanie:</b>"
++
++#: ../data/glade/FindStation.glade.h:4
++msgid "Find Station"
++msgstr "Wyszukiwanie stacji"
++
++#: ../data/glade/FirstRunDialog.glade.h:1
++msgid "Account Name:"
++msgstr "Nazwa konta:"
++
++#: ../data/glade/FirstRunDialog.glade.h:2
++msgid ""
++"Before you can use Last Exit, you need to have a Last.fm\n"
++"account. Please enter the account name and password\n"
++"below."
++msgstr ""
++"Zanim zaczniesz używać Last Exit, musisz posiadać konto Last.fm. Podaj nazwę "
++"konta\n"
++"oraz hasło poniżej."
++
++#: ../data/glade/FirstRunDialog.glade.h:5
++msgid "Don't have a Last.FM account?"
++msgstr "Nie posiadasz konta Last.fm?"
++
++#: ../data/glade/FirstRunDialog.glade.h:6 ../data/glade/Preferences.glade.h:8
++msgid "Password:"
++msgstr "Hasło:"
++
++#: ../data/glade/FirstRunDialog.glade.h:7 ../src/FirstRunDialog.cs:61
++msgid "Start Player"
++msgstr "Uruchom odtwarzacz"
++
++#: ../data/glade/FirstRunDialog.glade.h:8
++msgid "dialog2"
++msgstr ""
++
++#: ../data/glade/InfoWindow.glade.h:2
++msgid "<b>Album:</b>"
++msgstr "<b>Album:</b>"
++
++#: ../data/glade/InfoWindow.glade.h:3
++msgid "<b>Artist:</b>"
++msgstr "<b>Artysta:</b>"
++
++#: ../data/glade/InfoWindow.glade.h:4
++msgid "<b>Song:</b>"
++msgstr "<b>Utwór:</b>"
++
++#: ../data/glade/InfoWindow.glade.h:5 ../data/glade/TagDialog.glade.h:5
++msgid "dialog1"
++msgstr ""
++
++#: ../data/glade/PlayerWindow.glade.h:1
++msgid "Apply tags"
++msgstr "Przypisuje etykiety"
++
++#: ../data/glade/PlayerWindow.glade.h:2
++msgid "Hate!"
++msgstr "Blokuje odtwarzanie utworu"
++
++#: ../data/glade/PlayerWindow.glade.h:3
++msgid "Information"
++msgstr "Informacje "
++
++#: ../data/glade/PlayerWindow.glade.h:4
++msgid "Love!"
++msgstr "Dodaje aktualnie odtwarzany utwór do ulubionych"
++
++#: ../data/glade/PlayerWindow.glade.h:5
++msgid "Play the next song"
++msgstr "Odtwarza następny utwór"
++
++#: ../data/glade/PlayerWindow.glade.h:6
++msgid "Preferences"
++msgstr "Preferencje"
++
++#: ../data/glade/PlayerWindow.glade.h:7
++msgid "Switch music playback on or off"
++msgstr "Przełącza odtwarzanie muzyki"
++
++#: ../data/glade/PlayerWindow.glade.h:8
++msgid "Write a journal entry"
++msgstr "Dodaje wpis w dzienniku"
++
++#: ../data/glade/PlayerWindow.glade.h:9
++msgid "_Listening to:"
++msgstr "_Słuchasz:"
++
++#: ../data/glade/Preferences.glade.h:1
++msgid "<b>Last.fm Account</b>"
++msgstr "<b>Konto Last.fm</b>"
++
++#: ../data/glade/Preferences.glade.h:2
++msgid "<b>Recommendation Radio</b>"
++msgstr "<b>Radio propozycji</b>"
++
++#: ../data/glade/Preferences.glade.h:3
++msgid "<b>User Interface</b>"
++msgstr "<b>Interfejs użytkownika</b>"
++
++#: ../data/glade/Preferences.glade.h:4
++msgid "Create an account"
++msgstr "Utwórz konto"
++
++#: ../data/glade/Preferences.glade.h:5
++msgid "Join Last Exit group"
++msgstr "Przyłącz się do grupy Last Exit"
++
++#: ../data/glade/Preferences.glade.h:6
++msgid "Last Exit Preferences"
++msgstr "Właściwości Last Exit"
++
++#: ../data/glade/Preferences.glade.h:7
++msgid "Obscure"
++msgstr "Nietypowe"
++
++#: ../data/glade/Preferences.glade.h:9
++msgid "Popular"
++msgstr "Popularne"
++
++#: ../data/glade/Preferences.glade.h:10
++msgid "Show notification on song change"
++msgstr "Wyświetla powiadomienia przy zmianie utworu"
++
++#: ../data/glade/Preferences.glade.h:11
++msgid "User Name:"
++msgstr "Nazwa użytkownika:"
++
++#: ../data/glade/TagDialog.glade.h:1
++msgid "<span weight=\"bold\">Tag:</span>"
++msgstr "<span weight=\"bold\">Oznacz:</span>"
++
++#: ../data/glade/TagDialog.glade.h:2
++msgid ""
++"Track\n"
++"Album\n"
++"Artist"
++msgstr ""
++"Ścieżkę\n"
++"Album\n"
++"Artystę"
++
++#: ../data/last-exit.desktop.in.h:1
++msgid "Last-Exit"
++msgstr ""
++
++#: ../data/last-exit.desktop.in.h:2
++msgid "Last.fm player"
++msgstr "Odtwarzacz Last.fm"
++
++#: ../data/last-exit.schemas.in.h:1
++msgid "Account name"
++msgstr "Nazwa konta"
++
++#: ../data/last-exit.schemas.in.h:2
++msgid "Password"
++msgstr "Hasło"
++
++#: ../data/last-exit.schemas.in.h:3
++msgid "Password for the Last.FM account"
++msgstr "Hasło do konta Last.fm"
++
++#: ../data/last-exit.schemas.in.h:4
++msgid "Recommendation Level"
++msgstr "Poziom propozycji"
++
++#: ../data/last-exit.schemas.in.h:5
++msgid "Recommended radio setting (from 0-100)"
++msgstr "Ustawienie radia propozycji (od 0 do 100)"
++
++#: ../data/last-exit.schemas.in.h:6
++msgid "Set to true if the first run dialog should be shown"
++msgstr "Ustaw aby wyświetlać okno dialogowe jak podczas pierwszego uruchomienia"
++
++#: ../data/last-exit.schemas.in.h:7
++msgid "Show Notifications"
++msgstr "Wyświetla powiadomienia"
++
++#: ../data/last-exit.schemas.in.h:8
++msgid "Show first run dialog"
++msgstr "Wyświetla okno pierwszego uruchomienia"
++
++#: ../data/last-exit.schemas.in.h:9
++msgid "The Last.FM account name that we should use"
++msgstr "Nazwa konta Last.fm jaka ma być używana"
++
++#: ../data/last-exit.schemas.in.h:10
++msgid "Volume"
++msgstr "Głośność"
++
++#: ../data/last-exit.schemas.in.h:11
++msgid "Volume setting (from 0-100)"
++msgstr "Ustawienie głośności (od 0 do 100)"
++
++#: ../data/last-exit.schemas.in.h:12
++msgid "Whether Last-Exit shows notifications when the song changes"
++msgstr "Czy Last Exit powinien wyświetlać powiadomienia przy zmianie utworu"
++
++#: ../data/lastfm.schemas.in.h:1
++msgid "Is the Last-FM handler enabled"
++msgstr "Czy uchwyt dla Last.fm jest aktywny"
++
++#: ../data/lastfm.schemas.in.h:2
++msgid "Run the command in a terminal"
++msgstr "Uruchomia polecenie w terminalu"
++
++#: ../data/lastfm.schemas.in.h:3
++msgid "The command used to handle \"lastfm\" URLs, if enabled."
++msgstr "Polecenie używane do obsługi URL-i \"lastfm\",jeśli aktywne."
++
++#: ../data/lastfm.schemas.in.h:4
++msgid "The handler for \"lastfm\" URLs"
++msgstr "Uchwyt dla URL-i \"lastfm\""
++
++#: ../data/lastfm.schemas.in.h:5
++msgid ""
++"True if the command specified in the \"command\" key should handle \"lastfm"
++"\" URLs."
++msgstr ""
++"Prawdziwe, jeżeli polecenie podane w kluczu \"command\" powinno obsługiwać "
++"URL \"lastfm\"."
++
++#: ../data/lastfm.schemas.in.h:6
++msgid ""
++"True if the command used to handle \"lastfm\" URLs should be run in a "
++"terminal."
++msgstr ""
++"Prawdziwe, jeżeli polecenie wskazane do obsługi URL-i \"lastfm\" powinno "
++"zostać uruchomione w terminalu."
++
++#: ../src/About.cs:32
++msgid "Last Exit"
++msgstr "Last Exit"
++
++#: ../src/About.cs:35
++msgid "Copyright © 2006 Iain Holmes"
++msgstr ""
++
++#: ../src/About.cs:38
++msgid "A Last.fm radio player"
++msgstr "Odtwarzacz radia Last.fm"
++
++#: ../src/About.cs:45
++msgid "Iain Holmes <iain@gnome.org>"
++msgstr ""
++
++#: ../src/About.cs:46
++msgid "Baris Cicek <baris@teamforce.name.tr>"
++msgstr ""
++
++#: ../src/About.cs:47
++msgid "Brandon Hale <brandon@ubuntu.com>"
++msgstr ""
++
++#: ../src/About.cs:60
++msgid "translator-credits"
++msgstr "Łukasz Jernaś <deejay1@srem.org>"
++
++#: ../src/Actions.cs:35
++msgid "Show _Window"
++msgstr "_Wyświetl okno"
++
++#: ../src/Actions.cs:38
++msgid "_Play"
++msgstr "_Odtwarzanie"
++
++#: ../src/Actions.cs:41
++msgid "_Next"
++msgstr "_Następny"
++
++#: ../src/Actions.cs:44
++msgid "_About"
++msgstr "_Informacje o"
++
++#: ../src/Actions.cs:47
++msgid "_Preferences"
++msgstr "_Ustawienia"
++
++#: ../src/Actions.cs:50
++msgid "_Love Song"
++msgstr "_Dodaj do ulubionych"
++
++#: ../src/Actions.cs:53
++msgid "_Hate Song"
++msgstr "_Blokuj utwór"
++
++#: ../src/FindStation.cs:75
++msgid "Find A Station"
++msgstr "Wyszukiwanie stacji"
++
++#: ../src/FindStation.cs:105
++msgid "Cancel"
++msgstr "Anuluj"
++
++#: ../src/FindStation.cs:106
++msgid "Change Station"
++msgstr "Zmień stację"
++
++#: ../src/FindStation.cs:189
++msgid "Music that sounds like"
++msgstr "muzyki brzmiącej podobnie do"
++
++#: ../src/FindStation.cs:190
++msgid "Music that is tagged as"
++msgstr "muzyki oznaczonej jako"
++
++#: ../src/FindStation.cs:191
++msgid "A neighbours station"
++msgstr "radia sąsiadów"
++
++#: ../src/FindStation.cs:192
++msgid "A users station"
++msgstr "radia użytkownika"
++
++#: ../src/FindStation.cs:193
++msgid "Music from fans of"
++msgstr "radia wielbicieli"
++
++#: ../src/FindStation.cs:194
++msgid "A group station"
++msgstr "radia grupy"
++
++#: ../src/FindStation.cs:591
++msgid "Artist not found"
++msgstr "Artysta nie znaleziony"
++
++#: ../src/FindStation.cs:600
++#, csharp-format
++msgid "{0} is not streamable."
++msgstr "{0} nie jest strumieniowalny."
++
++#: ../src/FindStation.cs:609
++#, csharp-format
++msgid "Music that sounds like <b>{0}</b>"
++msgstr "Muzyka brzmiąca podobnie do <b>{0}</b>"
++
++#: ../src/FindStation.cs:614
++msgid "Featuring: \n"
++msgstr "Z udziałem: \n"
++
++#: ../src/FindStation.cs:630
++#, csharp-format
++msgid " and {0} other."
++msgid_plural " and {0} others."
++msgstr[0] " i {0} inny."
++msgstr[1] " i {0} innych."
++
++#: ../src/FirstRunDialog.cs:51
++msgid "Last.fm Account Details"
++msgstr "Szczegóły konta Last.fm"
++
++#: ../src/FirstRunDialog.cs:64
++msgid "Sign up for Last.fm"
++msgstr "Zarejestruj się"
++
++#: ../src/PlayerWindow.cs:275
++msgid "Neighbour Station"
++msgstr "Radio sąsiedzkie"
++
++#: ../src/PlayerWindow.cs:278
++msgid "Personal Station"
++msgstr "Radio osobiste"
++
++#: ../src/PlayerWindow.cs:282
++msgid "Favourites Station"
++msgstr "Radio ulubionych"
++
++#: ../src/PlayerWindow.cs:286
++msgid "Recommended Music Station"
++msgstr "Radio propozycji"
++
++#: ../src/PlayerWindow.cs:289
++msgid "Other Station..."
++msgstr "Inne radio..."
++
++#: ../src/PlayerWindow.cs:718
++#, csharp-format
++msgid ""
++"<span size=\"smaller\">From <a href=\"{0}\">{1}</a> by <a href=\"{2}\">{3}</"
++"a></span>"
++msgstr ""
++"<span size=\"smaller\">Z <a href=\"{0}\">{1}</a> wykonywany przez <a href="
++"\"{2}\">{3}</a></span>"
++
++#: ../src/PlayerWindow.cs:720
++#, csharp-format
++msgid "<span size=\"smaller\">By <a href=\"{0}\">{1}</a></span>"
++msgstr "<span size=\"smaller\">Wykonywany przez <a href=\"{0}\">{1}</a></span>"
++
++#: ../src/PlayerWindow.cs:722
++#, csharp-format
++msgid "<span size=\"smaller\">From <a href=\"{0}\">{1}</a></span>"
++msgstr "<span size=\"smaller\">Z <a href=\"{0}\">{1}</a></span>"
++
++#: ../src/PlayerWindow.cs:729
++#, csharp-format
++msgid "{0} by {1}"
++msgstr "{0} wykonywany przez {1}"
++
++#: ../src/PlayerWindow.cs:756
++msgid "There is not enough content to play this station."
++msgstr "Nie istnieje wystarczająca ilość utworów, aby odtwarzać to radio."
++
++#: ../src/PlayerWindow.cs:760
++msgid "This group does not have enough members for radio."
++msgstr "Ta grupa nie zawiera wystarczającej ilości członków, aby utworzyć radio."
++
++#: ../src/PlayerWindow.cs:764
++msgid "This artist does not have enough fans for radio."
++msgstr ""
++"Ten artysta nie posiada wystarczającej ilości wielbicieli, aby utworzyć "
++"radio."
++
++#: ../src/PlayerWindow.cs:768
++msgid "This item is not available for streaming."
++msgstr "Strumieniowanie nie jest dostępne."
++
++#: ../src/PlayerWindow.cs:772
++msgid "This feature is only available to subscribers."
++msgstr "Ta opcja jest dostępna jedynie dla abonentów."
++
++#: ../src/PlayerWindow.cs:776
++msgid "There are not enough neighbours for this radio."
++msgstr "Nie istnieje wystarczająco wielu sąsiadów, aby odtwarzać to radio."
++
++#: ../src/PlayerWindow.cs:780
++msgid "This stream has stopped."
++msgstr "Strumień został przerwany."
++
++#: ../src/PlayerWindow.cs:784
++msgid "There is no such a group."
++msgstr "Nie istnieje taka grupa."
++
++#: ../src/PlayerWindow.cs:788
++msgid "There is no such an artist."
++msgstr "Nie istnieje taki artysta."
++
++#: ../src/TagDialog.cs:44
++msgid "Tag A Song"
++msgstr "Oznacz utwór"
++
++#: ../src/TagDialog.cs:87 ../src/TagDialog.cs:91 ../src/TagDialog.cs:95
++#, csharp-format
++msgid "Tag '{0}'"
++msgstr "Oznaczanie {0}"
++
++#: ../src/TagSelector.cs:46
++#, csharp-format
++msgid "<span size=\"smaller\"><i>Tagged {0} item</i></span>"
++msgid_plural "<span size=\"smaller\"><i>Tagged {0} items</i></span>"
++msgstr[0] "<span size=\"smaller\"><i>Oznaczono {0} pozycję</i></span>"
++msgstr[1] "<span size=\"smaller\"><i>Oznaczono {0} pozycji</i></span>"
++msgstr[2] "<span size=\"smaller\">Wykonywany przez <a href=\"{0}\">{1}</a></span>"
++
++#: ../src/TagView.cs:48
++#, csharp-format
++msgid ""
++"\n"
++"<span size=\"smaller\">Relevance: {0}%</span>"
++msgstr ""
++"\n"
++"<span size=\"smaller\">Ważność: {0}%</span>"
++
++#: ../src/TrayIcon.cs:184
++#, csharp-format
++msgid "<span weight=\"bold\">{0}</span>"
++msgstr "<span weight=\"bold\">{0}</span>"
++
++#: ../src/TrayIcon.cs:190 ../src/TrayIcon.cs:192
++#, csharp-format
++msgid "<span size=\"smaller\">By <span weight=\"bold\">{0}</span></span>"
++msgstr ""
++"<span size=\"smaller\">wykonywany przez\n"
++"<span weight=\"bold\">{0}</span></span>"
++
++#: ../src/TrayIcon.cs:208
++msgid " by "
++msgstr " wykonywanego przez "
++
++#. Wait til cover is set before we notify :)
++#: ../src/TrayIcon.cs:214
++msgid "Now playing"
++msgstr "Odtwarzanie utworu"
++
++#: ../src/VolumeButton.cs:493
++msgid "Muted"
++msgstr "Wyciszony"
++
++#: ../src/VolumeButton.cs:495
++msgid "Full Volume"
++msgstr "Pełna głośność"
++
+diff -Nur last-exit-5/po/POTFILES.in last-exit-5-patched/po/POTFILES.in
+--- last-exit-5/po/POTFILES.in	2007-02-15 13:17:07.000000000 +0100
++++ last-exit-5-patched/po/POTFILES.in	2007-04-15 12:40:31.000000000 +0200
+@@ -19,4 +19,7 @@
+ src/InfoWindow.cs
+ src/PlayerWindow.cs
+ src/TagDialog.cs
++src/TagSelector.cs
++src/TagView.cs
+ src/TrayIcon.cs
++src/VolumeButton.cs
+diff -Nur last-exit-5/po/sv.po last-exit-5-patched/po/sv.po
+--- last-exit-5/po/sv.po	2007-02-25 23:50:11.000000000 +0100
++++ last-exit-5-patched/po/sv.po	2007-04-15 12:40:31.000000000 +0200
+@@ -1,14 +1,14 @@
+ # Swedish translation for last-exit.
+-# Copyright (C) 2006 Free Software Foundation
++# Copyright (C) 2006, 2007 Free Software Foundation
+ # This file is distributed under the same license as the last-exit package.
+-# Daniel Nylander <po@danielnylander.se>, 2006.
++# Daniel Nylander <po@danielnylander.se>, 2006, 2007.
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: last-exit\n"
+ "Report-Msgid-Bugs-To: \n"
+-"POT-Creation-Date: 2007-02-23 14:00+0100\n"
+-"PO-Revision-Date: 2007-02-23 13:57+0100\n"
++"POT-Creation-Date: 2007-04-15 12:41+0200\n"
++"PO-Revision-Date: 2007-04-15 12:43+0100\n"
+ "Last-Translator: Daniel Nylander <po@danielnylander.se>\n"
+ "Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
+ "MIME-Version: 1.0\n"
+@@ -16,7 +16,8 @@
+ "Content-Transfer-Encoding: 8bit\n"
+ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+ 
+-#: ../data/glade/FindStation.glade.h:1 ../data/glade/InfoWindow.glade.h:1
++#: ../data/glade/FindStation.glade.h:1
++#: ../data/glade/InfoWindow.glade.h:1
+ msgid "    "
+ msgstr "    "
+ 
+@@ -30,7 +31,7 @@
+ 
+ #: ../data/glade/FindStation.glade.h:4
+ msgid "Find Station"
+-msgstr "Hitta station"
++msgstr "Sök station"
+ 
+ #: ../data/glade/FirstRunDialog.glade.h:1
+ msgid "Account Name:"
+@@ -50,11 +51,13 @@
+ msgid "Don't have a Last.FM account?"
+ msgstr "Har du inget Last.FM-konto?"
+ 
+-#: ../data/glade/FirstRunDialog.glade.h:6 ../data/glade/Preferences.glade.h:8
++#: ../data/glade/FirstRunDialog.glade.h:6
++#: ../data/glade/Preferences.glade.h:8
+ msgid "Password:"
+ msgstr "Lösenord:"
+ 
+-#: ../data/glade/FirstRunDialog.glade.h:7 ../src/FirstRunDialog.cs:60
++#: ../data/glade/FirstRunDialog.glade.h:7
++#: ../src/FirstRunDialog.cs:61
+ msgid "Start Player"
+ msgstr "Starta spelaren"
+ 
+@@ -74,7 +77,8 @@
+ msgid "<b>Song:</b>"
+ msgstr "<b>Låt:</b>"
+ 
+-#: ../data/glade/InfoWindow.glade.h:5 ../data/glade/TagDialog.glade.h:5
++#: ../data/glade/InfoWindow.glade.h:5
++#: ../data/glade/TagDialog.glade.h:5
+ msgid "dialog1"
+ msgstr "dialog1"
+ 
+@@ -241,19 +245,12 @@
+ msgstr "Hanteraren för \"lastfm\"-url:er"
+ 
+ #: ../data/lastfm.schemas.in.h:5
+-msgid ""
+-"True if the command specified in the \"command\" key should handle \"lastfm"
+-"\" URLs."
+-msgstr ""
+-"Sant om angivet kommando i \"command\"-nyckeln ska hantera \"lastfm\"-url:er."
++msgid "True if the command specified in the \"command\" key should handle \"lastfm\" URLs."
++msgstr "Sant om angivet kommando i \"command\"-nyckeln ska hantera \"lastfm\"-url:er."
+ 
+ #: ../data/lastfm.schemas.in.h:6
+-msgid ""
+-"True if the command used to handle \"lastfm\" URLs should be run in a "
+-"terminal."
+-msgstr ""
+-"Sant om kommandot som används för att hantera \"lastfm\"-url:er ska köras i "
+-"en terminal."
++msgid "True if the command used to handle \"lastfm\" URLs should be run in a terminal."
++msgstr "Sant om kommandot som används för att hantera \"lastfm\"-url:er ska köras i en terminal."
+ 
+ #: ../src/About.cs:32
+ msgid "Last Exit"
+@@ -267,19 +264,19 @@
+ msgid "A Last.fm radio player"
+ msgstr "En Last.fm-radiospelare"
+ 
+-#: ../src/About.cs:42
++#: ../src/About.cs:45
+ msgid "Iain Holmes <iain@gnome.org>"
+ msgstr "Iain Holmes <iain@gnome.org>"
+ 
+-#: ../src/About.cs:43
++#: ../src/About.cs:46
+ msgid "Baris Cicek <baris@teamforce.name.tr>"
+ msgstr "Baris Cicek <baris@teamforce.name.tr>"
+ 
+-#: ../src/About.cs:44
++#: ../src/About.cs:47
+ msgid "Brandon Hale <brandon@ubuntu.com>"
+ msgstr "Brandon Hale <brandon@ubuntu.com>"
+ 
+-#: ../src/About.cs:57
++#: ../src/About.cs:60
+ msgid "translator-credits"
+ msgstr "Daniel Nylander <po@danielnylander.se>"
+ 
+@@ -311,163 +308,185 @@
+ msgid "_Hate Song"
+ msgstr "_Hatar låten"
+ 
+-#: ../src/FindStation.cs:73
++#: ../src/FindStation.cs:75
+ msgid "Find A Station"
+ msgstr "Hitta en station"
+ 
+-#: ../src/FindStation.cs:102
++#: ../src/FindStation.cs:105
+ msgid "Cancel"
+ msgstr "Avbryt"
+ 
+-#: ../src/FindStation.cs:103
++#: ../src/FindStation.cs:106
+ msgid "Change Station"
+ msgstr "Byt station"
+ 
+-#: ../src/FindStation.cs:182
++#: ../src/FindStation.cs:189
+ msgid "Music that sounds like"
+ msgstr "Musik som låter som"
+ 
+-#: ../src/FindStation.cs:183
++#: ../src/FindStation.cs:190
+ msgid "Music that is tagged as"
+ msgstr "Musik som är taggad som"
+ 
+-#: ../src/FindStation.cs:184
++#: ../src/FindStation.cs:191
+ msgid "A neighbours station"
+ msgstr "En grannstation"
+ 
+-#: ../src/FindStation.cs:185
++#: ../src/FindStation.cs:192
+ msgid "A users station"
+ msgstr "En användarstation"
+ 
+-#: ../src/FindStation.cs:186
++#: ../src/FindStation.cs:193
+ msgid "Music from fans of"
+ msgstr "Musik från fans av"
+ 
+-#: ../src/FindStation.cs:187
++#: ../src/FindStation.cs:194
+ msgid "A group station"
+ msgstr "En gruppstation"
+ 
+-#: ../src/FindStation.cs:586
++#: ../src/FindStation.cs:591
+ msgid "Artist not found"
+ msgstr "Artisten hittades inte"
+ 
+-#: ../src/FindStation.cs:595
++#: ../src/FindStation.cs:600
+ #, csharp-format
+ msgid "{0} is not streamable."
+ msgstr "{0} är inte möjlig att strömma."
+ 
+-#: ../src/FindStation.cs:604
++#: ../src/FindStation.cs:609
+ #, csharp-format
+ msgid "Music that sounds like <b>{0}</b>"
+ msgstr "Musik som låter som <b>{0}</b>"
+ 
+-#: ../src/FindStation.cs:609
++#: ../src/FindStation.cs:614
+ msgid "Featuring: \n"
+ msgstr "Medverkande: \n"
+ 
+-#: ../src/FindStation.cs:625
++#: ../src/FindStation.cs:630
+ #, csharp-format
+ msgid " and {0} other."
+ msgid_plural " and {0} others."
+ msgstr[0] " och en annan."
+ msgstr[1] " och {0} andra."
+ 
+-#: ../src/FirstRunDialog.cs:50
++#: ../src/FirstRunDialog.cs:51
+ msgid "Last.fm Account Details"
+ msgstr "Detaljer för Last.fm-konto"
+ 
+-#: ../src/FirstRunDialog.cs:63
++#: ../src/FirstRunDialog.cs:64
+ msgid "Sign up for Last.fm"
+ msgstr "Registrera dig för Last.fm"
+ 
+-#: ../src/PlayerWindow.cs:273
++#: ../src/PlayerWindow.cs:275
+ msgid "Neighbour Station"
+ msgstr "Grannstation"
+ 
+-#: ../src/PlayerWindow.cs:276
++#: ../src/PlayerWindow.cs:278
+ msgid "Personal Station"
+ msgstr "Personlig station"
+ 
+-#: ../src/PlayerWindow.cs:280
++#: ../src/PlayerWindow.cs:282
+ msgid "Favourites Station"
+ msgstr "Favoritstation"
+ 
+-#: ../src/PlayerWindow.cs:284
++#: ../src/PlayerWindow.cs:286
+ msgid "Recommended Music Station"
+ msgstr "Rekommenderad musikstation"
+ 
+-#: ../src/PlayerWindow.cs:287
++#: ../src/PlayerWindow.cs:289
+ msgid "Other Station..."
+ msgstr "Annan station..."
+ 
+-#: ../src/PlayerWindow.cs:713
++#: ../src/PlayerWindow.cs:718
+ #, csharp-format
+-msgid ""
+-"<span size=\"smaller\">From <a href=\"{0}\">{1}</a> by <a href=\"{2}\">{3}</"
+-"a></span>"
+-msgstr ""
+-"<span size=\"smaller\">Från <a href=\"{0}\">{1}</a> av <a href=\"{2}\">{3}</"
+-"a></span>"
++msgid "<span size=\"smaller\">From <a href=\"{0}\">{1}</a> by <a href=\"{2}\">{3}</a></span>"
++msgstr "<span size=\"smaller\">Från <a href=\"{0}\">{1}</a> av <a href=\"{2}\">{3}</a></span>"
+ 
+-#: ../src/PlayerWindow.cs:715
++#: ../src/PlayerWindow.cs:720
+ #, csharp-format
+ msgid "<span size=\"smaller\">By <a href=\"{0}\">{1}</a></span>"
+ msgstr "<span size=\"smaller\">Av <a href=\"{0}\">{1}</a></span>"
+ 
+-#: ../src/PlayerWindow.cs:717
++#: ../src/PlayerWindow.cs:722
+ #, csharp-format
+ msgid "<span size=\"smaller\">From <a href=\"{0}\">{1}</a></span>"
+ msgstr "<span size=\"smaller\">Från <a href=\"{0}\">{1}</a></span>"
+ 
+-#: ../src/PlayerWindow.cs:724
++#: ../src/PlayerWindow.cs:729
+ #, csharp-format
+ msgid "{0} by {1}"
+ msgstr "{0} av {1}"
+ 
+-#: ../src/PlayerWindow.cs:751
++#: ../src/PlayerWindow.cs:756
+ msgid "There is not enough content to play this station."
+-msgstr ""
+-"Det finns inte tillräckligt med innehåll för att spela upp den här stationen."
++msgstr "Det finns inte tillräckligt med innehåll för att spela upp den här stationen."
+ 
+-#: ../src/PlayerWindow.cs:755
++#: ../src/PlayerWindow.cs:760
+ msgid "This group does not have enough members for radio."
+ msgstr "Den här gruppen har inte tillräckligt många medlemmar för radio."
+ 
+-#: ../src/PlayerWindow.cs:759
++#: ../src/PlayerWindow.cs:764
+ msgid "This artist does not have enough fans for radio."
+ msgstr "Den här artisten har inte tillräckligt många fans för radio."
+ 
+-#: ../src/PlayerWindow.cs:763
++#: ../src/PlayerWindow.cs:768
+ msgid "This item is not available for streaming."
+ msgstr "Det här objektet finns inte tillgängligt för att strömma."
+ 
+-#: ../src/PlayerWindow.cs:767
++#: ../src/PlayerWindow.cs:772
+ msgid "This feature is only available to subscribers."
+ msgstr "Den här funktionen finns endast tillgänglig för prenumeranter."
+ 
+-#: ../src/PlayerWindow.cs:771
++#: ../src/PlayerWindow.cs:776
+ msgid "There are not enough neighbours for this radio."
+ msgstr "Det finns inte tillräckligt många grannar för den här radion."
+ 
+-#: ../src/PlayerWindow.cs:775
++#: ../src/PlayerWindow.cs:780
+ msgid "This stream has stopped."
+ msgstr "Den här strömmen har stoppat."
+ 
++#: ../src/PlayerWindow.cs:784
++msgid "There is no such a group."
++msgstr "Det finns ingen sådan grupp."
++
++#: ../src/PlayerWindow.cs:788
++msgid "There is no such an artist."
++msgstr "Det finns ingen sådan artist."
++
+ #: ../src/TagDialog.cs:44
+ msgid "Tag A Song"
+ msgstr "Tagga en låt"
+ 
+-#: ../src/TagDialog.cs:87 ../src/TagDialog.cs:91 ../src/TagDialog.cs:95
++#: ../src/TagDialog.cs:87
++#: ../src/TagDialog.cs:91
++#: ../src/TagDialog.cs:95
+ #, csharp-format
+ msgid "Tag '{0}'"
+ msgstr "Tagg \"{0}\""
+ 
++#: ../src/TagSelector.cs:46
++#, csharp-format
++msgid "<span size=\"smaller\"><i>Tagged {0} item</i></span>"
++msgid_plural "<span size=\"smaller\"><i>Tagged {0} items</i></span>"
++msgstr[0] "<span size=\"smaller\"><i>Taggade {0} objekt</i></span>"
++msgstr[1] "<span size=\"smaller\"><i>Taggade {0} objekt</i></span>"
++
++#: ../src/TagView.cs:48
++#, csharp-format
++msgid ""
++"\n"
++"<span size=\"smaller\">Relevance: {0}%</span>"
++msgstr ""
++"\n"
++"<span size=\"smaller\">Relevans: {0}%</span>"
++
+ #: ../src/TrayIcon.cs:184
+ #, csharp-format
+ msgid "<span weight=\"bold\">{0}</span>"
+ msgstr "<span weight=\"bold\">{0}</span>"
+ 
+-#: ../src/TrayIcon.cs:190 ../src/TrayIcon.cs:192
++#: ../src/TrayIcon.cs:190
++#: ../src/TrayIcon.cs:192
+ #, csharp-format
+ msgid "<span size=\"smaller\">By <span weight=\"bold\">{0}</span></span>"
+ msgstr "<span size=\"smaller\">Av <span weight=\"bold\">{0}</span></span>"
+@@ -481,5 +500,14 @@
+ msgid "Now playing"
+ msgstr "Spelar nu"
+ 
++#: ../src/VolumeButton.cs:493
++msgid "Muted"
++msgstr "Tyst"
++
++#: ../src/VolumeButton.cs:495
++msgid "Full Volume"
++msgstr "Full volym"
++
+ #~ msgid "Add Tag"
+ #~ msgstr "Lägg till tagg"
++
+diff -Nur last-exit-5/src/.cvsignore last-exit-5-patched/src/.cvsignore
+--- last-exit-5/src/.cvsignore	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/src/.cvsignore	2006-03-23 13:49:38.000000000 +0100
+@@ -0,0 +1,5 @@
++Makefile
++Makefile.in
++last-exit
++last-exit.exe.config
++last-exit.exe.mdb
+diff -Nur last-exit-5/src/TagSelector.cs last-exit-5-patched/src/TagSelector.cs
+--- last-exit-5/src/TagSelector.cs	2007-01-16 02:55:34.000000000 +0100
++++ last-exit-5-patched/src/TagSelector.cs	2007-04-15 04:46:45.000000000 +0200
+@@ -21,6 +21,7 @@
+ 
+ using System;
+ using System.Collections;
++using Mono.Unix;
+ 
+ using Gtk;
+ 
+@@ -42,8 +43,7 @@
+ 				}
+ 
+ 				foreach (Tag t in value) {
+-					// FIXME: l10n???
+-					string s = "<b>" + t.Name + "</b>\n<span size=\"smaller\"><i>Tagged " + t.Count + " items</i></span>";
++					string s = "<b>" + t.Name + "</b>\n" + String.Format(Catalog.GetPluralString("<span size=\"smaller\"><i>Tagged {0} item</i></span>","<span size=\"smaller\"><i>Tagged {0} items</i></span>",t.Count),t.Count);
+ 					tagstore.AppendValues (t.Name, s);
+ 				}
+ 			}
+diff -Nur last-exit-5/src/TagView.cs last-exit-5-patched/src/TagView.cs
+--- last-exit-5/src/TagView.cs	2007-01-16 02:55:34.000000000 +0100
++++ last-exit-5-patched/src/TagView.cs	2007-04-15 04:46:45.000000000 +0200
+@@ -21,6 +21,7 @@
+ 
+ using System;
+ using System.Collections;
++using Mono.Unix;
+ 
+ using Gtk;
+ 
+@@ -44,8 +45,7 @@
+ 				}
+ 
+ 				foreach (Tag t in value) {
+-					// FIXME: l10n
+-					string pretty = t.Name + "\n<span size=\"smaller\">Relevance: " + (t.Match * 100) + "%</span>";
++					string pretty = t.Name + String.Format(Catalog.GetString("\n<span size=\"smaller\">Relevance: {0}%</span>"),(t.Match * 100));
+ 					
+ 					tagstore.AppendValues (t.ID, t.Name, t.Match, pretty);
+ 				}
+diff -Nur last-exit-5/xmlrpccs/LICENSE.html last-exit-5-patched/xmlrpccs/LICENSE.html
+--- last-exit-5/xmlrpccs/LICENSE.html	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/xmlrpccs/LICENSE.html	2007-04-09 03:11:37.000000000 +0200
+@@ -0,0 +1,37 @@
++<HTML>
++<head>
++<title>XmlRpcCS LICENSE</title>
++</head>
++<body>
++<h1>XmlRpcCS LICENSE</h1>
++<pre>
++Copyright (c) 2003, Nicholas Christopher
++All rights reserved.
++
++Redistribution and use in source and binary forms, with or without
++modification, are permitted provided that the following conditions are met:
++
++    * Redistributions of source code must retain the above copyright notice,
++    this list of conditions and the following disclaimer.
++
++    * Redistributions in binary form must reproduce the above copyright notice,
++    this list of conditions and the following disclaimer in the documentation
++    and/or other materials provided with the distribution.
++
++    * Neither the name of XmlRpcCS nor the names of its contributors
++    may be used to endorse or promote products derived from this software
++    without specific prior written permission.
++
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
++ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
++ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
++ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
++</pre>
++</body> </HTML>
+diff -Nur last-exit-5/xmlrpccs/src/nwc/xmlrpc/xmlrpc.patch last-exit-5-patched/xmlrpccs/src/nwc/xmlrpc/xmlrpc.patch
+--- last-exit-5/xmlrpccs/src/nwc/xmlrpc/xmlrpc.patch	1970-01-01 01:00:00.000000000 +0100
++++ last-exit-5-patched/xmlrpccs/src/nwc/xmlrpc/xmlrpc.patch	2007-04-09 03:11:37.000000000 +0200
+@@ -0,0 +1,2030 @@
++Index: XmlRpcBoxcarRequest.cs
++===================================================================
++--- XmlRpcBoxcarRequest.cs	(revision 0)
+++++ XmlRpcBoxcarRequest.cs	(revision 0)
++@@ -0,0 +1,51 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.IO;
+++  using System.Xml;
+++  using System.Net;
+++  using System.Text;
+++  using System.Reflection;
+++
+++  /// <summary>Class that collects individual <c>XmlRpcRequest</c> objects and submits them as a <i>boxcarred</i> request.</summary>
+++  /// <remarks>A boxcared request is when a number of request are collected before being sent via XML-RPC, and then are sent via
+++  /// a single HTTP connection. This results in a speed up from reduced connection time.  The results are then retuned collectively
+++  /// as well.
+++  ///</remarks>
+++  /// <seealso cref="XmlRpcRequest"/>
+++  public class XmlRpcBoxcarRequest : XmlRpcRequest
+++  {
+++    /// <summary>ArrayList to collect the requests to boxcar.</summary>
+++    public IList Requests = new ArrayList();
+++
+++    /// <summary>Basic constructor.</summary>
+++    public XmlRpcBoxcarRequest()
+++      {
+++      }
+++
+++    /// <summary>Returns the <c>String</c> "system.multiCall" which is the server method that handles boxcars.</summary>
+++    public override String MethodName
+++      {
+++	get { return  "system.multiCall";  }
+++      }
+++
+++    /// <summary>The <c>ArrayList</c> of boxcarred <paramref>Requests</paramref> as properly formed parameters.</summary>
+++    public override IList Params
+++      {
+++	get {
+++	  _params.Clear();
+++	  ArrayList reqArray = new ArrayList();
+++	  foreach (XmlRpcRequest request in Requests)
+++	    {
+++	      Hashtable requestEntry = new Hashtable();
+++	      requestEntry.Add(XmlRpcXmlTokens.METHOD_NAME, request.MethodName);
+++	      requestEntry.Add(XmlRpcXmlTokens.PARAMS, request.Params);
+++	      reqArray.Add(requestEntry);
+++	    }
+++	  _params.Add(reqArray);
+++	  return _params;
+++	}
+++      }
+++  }
+++}
++Index: XmlRpcRequest.cs
++===================================================================
++--- XmlRpcRequest.cs	(revision 0)
+++++ XmlRpcRequest.cs	(revision 0)
++@@ -0,0 +1,126 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.IO;
+++  using System.Xml;
+++  using System.Net;
+++  using System.Text;
+++  using System.Reflection;
+++
+++  /// <summary>Class supporting the request side of an XML-RPC transaction.</summary>
+++  public class XmlRpcRequest
+++  {
+++    private String _methodName = null;
+++    private Encoding _encoding = new ASCIIEncoding();
+++    private XmlRpcRequestSerializer _serializer = new XmlRpcRequestSerializer();
+++    private XmlRpcResponseDeserializer _deserializer = new XmlRpcResponseDeserializer();
+++
+++    /// <summary><c>ArrayList</c> containing the parameters.</summary>
+++    protected IList _params = null;
+++
+++    /// <summary>Instantiate an <c>XmlRpcRequest</c></summary>
+++    public XmlRpcRequest()
+++      {
+++	_params = new ArrayList();
+++      }
+++
+++    /// <summary>Instantiate an <c>XmlRpcRequest</c> for a specified method and parameters.</summary>
+++    /// <param name="methodName"><c>String</c> designating the <i>object.method</i> on the server the request
+++    /// should be directed to.</param>
+++    /// <param name="parameters"><c>ArrayList</c> of XML-RPC type parameters to invoke the request with.</param>
+++    public XmlRpcRequest(String methodName, IList parameters)
+++      {
+++	MethodName = methodName;
+++	_params = parameters;
+++      }
+++
+++    /// <summary><c>ArrayList</c> conntaining the parameters for the request.</summary>
+++    public virtual IList Params
+++      {
+++	get { return _params; }
+++      }
+++
+++    /// <summary><c>String</c> conntaining the method name, both object and method, that the request will be sent to.</summary>
+++    public virtual String MethodName
+++      {
+++	get { return _methodName; }
+++	set { _methodName = value; }
+++      }
+++
+++    /// <summary><c>String</c> object name portion of the method name.</summary>
+++    public String MethodNameObject
+++      {
+++	get {
+++	  int index = MethodName.IndexOf(".");
+++
+++	  if (index == -1)
+++	    return MethodName;
+++
+++	  return MethodName.Substring(0,index);
+++	}
+++      }
+++
+++    /// <summary><c>String</c> method name portion of the object.method name.</summary>
+++    public String MethodNameMethod
+++      {
+++	get {
+++	  int index = MethodName.IndexOf(".");
+++
+++	  if (index == -1)
+++	    return MethodName;
+++
+++	  return MethodName.Substring(index + 1, MethodName.Length - index - 1);
+++	}
+++      }
+++
+++    /// <summary>Invoke this request on the server.</summary>
+++    /// <param name="url"><c>String</c> The url of the XML-RPC server.</param>
+++    /// <returns><c>Object</c> The value returned from the method invocation on the server.</returns>
+++    /// <exception cref="XmlRpcException">If an exception generated on the server side.</exception>
+++    public Object Invoke(String url)
+++      {
+++	XmlRpcResponse res = Send(url);
+++
+++	if (res.IsFault)
+++	  throw new XmlRpcException(res.FaultCode, res.FaultString);
+++	
+++	return res.Value;
+++      }
+++
+++    /// <summary>Send the request to the server.</summary>
+++    /// <param name="url"><c>String</c> The url of the XML-RPC server.</param>
+++    /// <returns><c>XmlRpcResponse</c> The response generated.</returns>
+++    public XmlRpcResponse Send(String url)
+++      {
+++	HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+++	if (request == null)
+++	  throw new XmlRpcException(XmlRpcErrorCodes.TRANSPORT_ERROR,
+++				    XmlRpcErrorCodes.TRANSPORT_ERROR_MSG +": Could not create request with " + url);
+++	request.Method = "POST";
+++	request.ContentType = "text/xml";
+++	request.AllowWriteStreamBuffering = true;
+++
+++	Stream stream = request.GetRequestStream();
+++	XmlTextWriter xml = new XmlTextWriter(stream, _encoding);
+++	_serializer.Serialize(xml, this);
+++	xml.Flush();
+++	xml.Close();
+++
+++	HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+++	StreamReader input = new StreamReader(response.GetResponseStream());
+++
+++	XmlRpcResponse resp = (XmlRpcResponse)_deserializer.Deserialize(input);
+++	input.Close();
+++	response.Close();
+++	return resp;
+++      }
+++
+++    /// <summary>Produce <c>String</c> representation of the object.</summary>
+++    /// <returns><c>String</c> representation of the object.</returns>
+++    override public String ToString()
+++      {
+++	return _serializer.Serialize(this);
+++      }
+++  }
+++}
++Index: XmlRpcResponseSerializer.cs
++===================================================================
++--- XmlRpcResponseSerializer.cs	(revision 0)
+++++ XmlRpcResponseSerializer.cs	(revision 0)
++@@ -0,0 +1,57 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.Xml;
+++
+++  /// <summary>Class responsible for serializing an XML-RPC response.</summary>
+++  /// <remarks>This class handles the response envelope, depending on XmlRpcSerializer
+++  /// to serialize the payload.</remarks>
+++  /// <seealso cref="XmlRpcSerializer"/>
+++  public class XmlRpcResponseSerializer : XmlRpcSerializer
+++  {
+++    static private XmlRpcResponseSerializer _singleton;
+++    /// <summary>A static singleton instance of this deserializer.</summary>
+++    static public XmlRpcResponseSerializer Singleton
+++      {
+++	get
+++	  {
+++	    if (_singleton == null)
+++	      _singleton = new XmlRpcResponseSerializer();
+++
+++	    return _singleton;
+++	  }
+++      }
+++
+++    /// <summary>Serialize the <c>XmlRpcResponse</c> to the output stream.</summary>
+++    /// <param name="output">An <c>XmlTextWriter</c> stream to write data to.</param>
+++    /// <param name="obj">An <c>Object</c> to serialize.</param>
+++    /// <seealso cref="XmlRpcResponse"/>
+++    override public void Serialize(XmlTextWriter output, Object obj)
+++      {
+++	XmlRpcResponse response = (XmlRpcResponse) obj;
+++
+++	output.WriteStartDocument();
+++	output.WriteStartElement(METHOD_RESPONSE);
+++
+++	if (response.IsFault)
+++	  output.WriteStartElement(FAULT);
+++	else
+++	  {
+++	    output.WriteStartElement(PARAMS);
+++	    output.WriteStartElement(PARAM);
+++	  }
+++
+++	output.WriteStartElement(VALUE);
+++
+++	SerializeObject(output,response.Value);
+++
+++	output.WriteEndElement();
+++
+++	output.WriteEndElement();
+++	if (!response.IsFault)
+++	  output.WriteEndElement();
+++	output.WriteEndElement();
+++      }
+++  }
+++}
++Index: Logger.cs
++===================================================================
++--- Logger.cs	(revision 0)
+++++ Logger.cs	(revision 0)
++@@ -0,0 +1,46 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++
+++  /// <summary>Define levels of logging.</summary><remarks> This duplicates
+++  /// similar enumerations in System.Diagnostics.EventLogEntryType. The 
+++  /// duplication was merited because .NET Compact Framework lacked the EventLogEntryType enum.</remarks>
+++  public enum LogLevel
+++  {
+++    /// <summary>Information level, log entry for informational reasons only.</summary>
+++    Information,
+++    /// <summary>Warning level, indicates a possible problem.</summary>
+++    Warning,
+++    /// <summary>Error level, implies a significant problem.</summary>
+++    Error
+++  }
+++
+++  ///<summary>
+++  ///Logging singleton with swappable output delegate.
+++  ///</summary>
+++  ///<remarks>
+++  ///This singleton provides a centralized log. The actual WriteEntry calls are passed
+++  ///off to a delegate however. Having a delegate do the actual logginh allows you to
+++  ///implement different logging mechanism and have them take effect throughout the system.
+++  ///</remarks>
+++  public class Logger
+++  {
+++    ///<summary>Delegate definition for logging.</summary>
+++    ///<param name="message">The message <c>String</c> to log.</param>
+++    ///<param name="level">The <c>LogLevel</c> of your message.</param>
+++    public delegate void LoggerDelegate(String message, LogLevel level);
+++    ///<summary>The LoggerDelegate that will recieve WriteEntry requests.</summary>
+++    static public LoggerDelegate Delegate = null;
+++
+++    ///<summary>
+++    ///Method logging events are sent to.
+++    ///</summary>
+++    ///<param name="message">The message <c>String</c> to log.</param>
+++    ///<param name="level">The <c>LogLevel</c> of your message.</param>
+++    static public void WriteEntry(String message, LogLevel level)
+++      {
+++	if (Delegate != null)
+++	  Delegate(message, level);
+++      }
+++  }
+++}
++Index: XmlRpcRequestDeserializer.cs
++===================================================================
++--- XmlRpcRequestDeserializer.cs	(revision 0)
+++++ XmlRpcRequestDeserializer.cs	(revision 0)
++@@ -0,0 +1,64 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.Diagnostics;
+++  using System.IO;
+++  using System.Xml;
+++
+++  /// <summary>Class to deserialize XML data representing a request.</summary>
+++  public class XmlRpcRequestDeserializer : XmlRpcDeserializer
+++  {
+++    static private XmlRpcRequestDeserializer _singleton;
+++    /// <summary>A static singleton instance of this deserializer.</summary>
+++    [Obsolete("This object is now thread safe, just use an instance.",false)]
+++    static public XmlRpcRequestDeserializer Singleton
+++      {
+++	get
+++	  {
+++	    if (_singleton == null)
+++	      _singleton = new XmlRpcRequestDeserializer();
+++
+++	    return _singleton;
+++	  }
+++      }
+++
+++    /// <summary>Static method that parses XML data into a request using the Singleton.</summary>
+++    /// <param name="xmlData"><c>StreamReader</c> containing an XML-RPC request.</param>
+++    /// <returns><c>XmlRpcRequest</c> object resulting from the parse.</returns>
+++    override public Object Deserialize(TextReader xmlData)
+++      {
+++	XmlTextReader reader = new XmlTextReader(xmlData);
+++	XmlRpcRequest request = new XmlRpcRequest();
+++	bool done = false;
+++
+++	lock(this)
+++	  {
+++	    Reset();
+++	    while (!done && reader.Read())
+++	      {
+++		DeserializeNode(reader); // Parent parse...
+++		switch (reader.NodeType)
+++		  {
+++		  case XmlNodeType.EndElement:
+++		    switch (reader.Name)
+++		      {
+++		      case METHOD_NAME:
+++			request.MethodName = _text;
+++			break;
+++		      case METHOD_CALL:
+++			done = true;
+++			break;
+++		      case PARAM:
+++			request.Params.Add(_value);
+++			_text = null;
+++			break;
+++		      }
+++		    break;
+++		  }	
+++	      }
+++	  }
+++	return request;
+++      }
+++  }
+++}
++Index: XmlRpcExposedAttribute.cs
++===================================================================
++--- XmlRpcExposedAttribute.cs	(revision 0)
+++++ XmlRpcExposedAttribute.cs	(revision 0)
++@@ -0,0 +1,60 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Reflection;
+++
+++  /// <summary>
+++  /// Simple tagging attribute to indicate participation is XML-RPC exposure.
+++  /// </summary>
+++  /// <remarks>
+++  /// If present at the class level it indicates that this class does explicitly 
+++  /// expose methods. If present at the method level it denotes that the method
+++  /// is exposed.
+++  /// </remarks>
+++  [AttributeUsage(
+++        AttributeTargets.Class | AttributeTargets.Method, 
+++        AllowMultiple=false,
+++        Inherited=true
+++    )]
+++  public class XmlRpcExposedAttribute : Attribute
+++  {
+++    /// <summary>Check if <paramref>obj</paramref> is an object utilizing the XML-RPC exposed Attribute.</summary>
+++    /// <param name="obj"><c>Object</c> of a class or method to check for attribute.</param>
+++    /// <returns><c>Boolean</c> true if attribute present.</returns>
+++    public static Boolean ExposedObject(Object obj)
+++      {
+++	return IsExposed(obj.GetType());
+++      }
+++
+++    /// <summary>Check if <paramref>obj</paramref>.<paramref>methodName</paramref> is an XML-RPC exposed method.</summary>
+++    /// <remarks>A method is considered to be exposed if it exists and, either, the object does not use the XmlRpcExposed attribute,
+++    /// or the object does use the XmlRpcExposed attribute and the method has the XmlRpcExposed attribute as well.</remarks>
+++    /// <returns><c>Boolean</c> true if the  method is exposed.</returns>
+++    public static Boolean ExposedMethod(Object obj, String methodName)
+++      {
+++	Type type = obj.GetType();
+++	MethodInfo method = type.GetMethod(methodName);
+++
+++	if (method == null)
+++	  throw new MissingMethodException("Method " + methodName + " not found.");
+++
+++	if (!IsExposed(type))
+++	  return true;
+++
+++	return IsExposed(method);
+++      }
+++
+++    /// <summary>Check if <paramref>mi</paramref> is XML-RPC exposed.</summary>
+++    /// <param name="mi"><c>MemberInfo</c> of a class or method to check for attribute.</param>
+++    /// <returns><c>Boolean</c> true if attribute present.</returns>
+++    public static Boolean IsExposed(MemberInfo mi)
+++      {
+++	foreach (Attribute attr in mi.GetCustomAttributes(true))
+++	  {
+++	    if (attr is XmlRpcExposedAttribute)
+++	      return true;
+++	  }
+++	return false;
+++      }
+++  }
+++}
++Index: XmlRpcResponse.cs
++===================================================================
++--- XmlRpcResponse.cs	(revision 0)
+++++ XmlRpcResponse.cs	(revision 0)
++@@ -0,0 +1,81 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.IO;
+++  using System.Xml;
+++
+++  /// <summary>Class designed to represent an XML-RPC response.</summary>
+++  public class XmlRpcResponse
+++  {
+++    private Object _value;
+++    /// <summary><c>bool</c> indicating if this response represents a fault.</summary>
+++    public bool IsFault;
+++
+++    /// <summary>Basic constructor</summary>
+++    public XmlRpcResponse()
+++      {
+++	Value = null;
+++	IsFault = false;
+++      }
+++
+++    /// <summary>Constructor for a fault.</summary>
+++    /// <param name="code"><c>int</c> the numeric faultCode value.</param>
+++    /// <param name="message"><c>String</c> the faultString value.</param>
+++    public XmlRpcResponse(int code, String message) : this()
+++      {
+++	SetFault(code,message);
+++      }
+++
+++    /// <summary>The data value of the response, may be fault data.</summary>
+++    public Object Value
+++      {
+++	get { return _value; }
+++	set {
+++	  IsFault = false;
+++	  _value = value;
+++	}
+++      }
+++
+++    /// <summary>The faultCode if this is a fault.</summary>
+++    public int FaultCode
+++      {
+++	get {
+++	  if (!IsFault)
+++	    return 0;
+++	  else
+++	    return (int)((Hashtable)_value)[XmlRpcXmlTokens.FAULT_CODE];
+++	}
+++      }
+++
+++    /// <summary>The faultString if this is a fault.</summary>
+++    public String FaultString
+++      {
+++	get {
+++	  if (!IsFault)
+++	    return "";
+++	  else
+++	    return (String)((Hashtable)_value)[XmlRpcXmlTokens.FAULT_STRING];
+++	}
+++      }
+++
+++    /// <summary>Set this response to be a fault.</summary>
+++    /// <param name="code"><c>int</c> the numeric faultCode value.</param>
+++    /// <param name="message"><c>String</c> the faultString value.</param>
+++    public void SetFault(int code, String message)
+++      {
+++	Hashtable fault = new Hashtable();
+++	fault.Add("faultCode", code);
+++	fault.Add("faultString", message);
+++	Value = fault;
+++	IsFault = true;
+++      }
+++
+++    /// <summary>Form a useful string representation of the object, in this case the XML response.</summary>
+++    /// <returns><c>String</c> The XML serialized XML-RPC response.</returns>
+++    override public String ToString()
+++      {
+++	return XmlRpcResponseSerializer.Singleton.Serialize(this);
+++      }
+++  }
+++}
++Index: XmlRpcException.cs
++===================================================================
++--- XmlRpcException.cs	(revision 0)
+++++ XmlRpcException.cs	(revision 0)
++@@ -0,0 +1,38 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++
+++  /// <summary>An XML-RPC Exception.</summary>
+++  /// <remarks>Maps a C# exception to an XML-RPC fault. Normal exceptions
+++  /// include a message so this adds the code needed by XML-RPC.</remarks>
+++  public class XmlRpcException : Exception
+++    {
+++      private int _code;
+++  
+++      /// <summary>Instantiate an <c>XmlRpcException</c> with a code and message.</summary>
+++      /// <param name="code"><c>Int</c> faultCode associated with this exception.</param>
+++      /// <param name="message"><c>String</c> faultMessage associated with this exception.</param>
+++      public XmlRpcException(int code, String message) : base(message)
+++	{
+++	  _code = code;
+++	}
+++
+++      /// <summary>The value of the faults message, i.e. the faultString.</summary>
+++      public String FaultString
+++	{
+++	  get { return Message; }
+++	}
+++
+++      /// <summary>The value of the faults code, i.e. the faultCode.</summary>
+++      public int FaultCode
+++	{
+++	  get { return _code; }
+++	}
+++
+++      /// <summary>Format the message to include the code.</summary>
+++      override public String ToString()
+++	{
+++	  return "Code: " + FaultCode + " Message: " + base.ToString();
+++	}
+++    }
+++}
++Index: XmlRpcResponder.cs
++===================================================================
++--- XmlRpcResponder.cs	(revision 0)
+++++ XmlRpcResponder.cs	(revision 0)
++@@ -0,0 +1,98 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Xml;
+++  using System.Net.Sockets;
+++
+++  /// <summary>The class is a container of the context of an XML-RPC dialog on the server side.</summary>
+++  /// <remarks>Instances of this class maintain the context for an individual XML-RPC server
+++  /// side dialog. Namely they manage an inbound deserializer and an outbound serializer. </remarks>
+++  public class XmlRpcResponder
+++  {
+++    private XmlRpcRequestDeserializer _deserializer = new XmlRpcRequestDeserializer();
+++    private XmlRpcResponseSerializer _serializer = new XmlRpcResponseSerializer();
+++    private XmlRpcServer _server;
+++    private TcpClient _client;
+++    private SimpleHttpRequest _httpReq;
+++
+++    /// <summary>The SimpleHttpRequest based on the TcpClient.</summary>
+++    public SimpleHttpRequest HttpReq
+++      { 
+++	get { return _httpReq; }
+++      }
+++
+++    /// <summary>Basic constructor.</summary>
+++    /// <param name="server">XmlRpcServer that this XmlRpcResponder services.</param>
+++    /// <param name="client">TcpClient with the connection.</param>
+++    public XmlRpcResponder(XmlRpcServer server, TcpClient client)
+++      {
+++	_server = server;
+++	_client = client;
+++	_httpReq = new SimpleHttpRequest(_client);
+++      }
+++
+++    /// <summary>Call close to insure proper shutdown.</summary>
+++    ~XmlRpcResponder()
+++      {
+++	Close();
+++      }
+++
+++    ///<summary>Respond using this responders HttpReq.</summary>
+++    public void Respond()
+++      {
+++	Respond(HttpReq);
+++      }
+++
+++    /// <summary>Handle an HTTP request containing an XML-RPC request.</summary>
+++    /// <remarks>This method deserializes the XML-RPC request, invokes the 
+++    /// described method, serializes the response (or fault) and sends the XML-RPC response
+++    /// back as a valid HTTP page.
+++    /// </remarks>
+++    /// <param name="httpReq"><c>SimpleHttpRequest</c> containing the request.</param>
+++    public void Respond(SimpleHttpRequest httpReq)
+++      {
+++	XmlRpcRequest xmlRpcReq = (XmlRpcRequest)_deserializer.Deserialize(httpReq.Input);
+++	XmlRpcResponse xmlRpcResp = new XmlRpcResponse();
+++
+++	try
+++	  {
+++	    xmlRpcResp.Value = _server.Invoke(xmlRpcReq);
+++	  }
+++	catch (XmlRpcException e)
+++	  {
+++	    xmlRpcResp.SetFault(e.FaultCode, e.FaultString);
+++	  }
+++	catch (Exception e2)
+++	  {
+++	    xmlRpcResp.SetFault(XmlRpcErrorCodes.APPLICATION_ERROR, 
+++			  XmlRpcErrorCodes.APPLICATION_ERROR_MSG + ": " + e2.Message);
+++	  }
+++
+++	if (Logger.Delegate != null)
+++	  Logger.WriteEntry(xmlRpcResp.ToString(), LogLevel.Information);
+++
+++	XmlRpcServer.HttpHeader(httpReq.Protocol, "text/xml", 0, " 200 OK", httpReq.Output);
+++	httpReq.Output.Flush();
+++	XmlTextWriter xml = new XmlTextWriter(httpReq.Output);
+++	_serializer.Serialize(xml, xmlRpcResp);
+++	xml.Flush();
+++	httpReq.Output.Flush();
+++      }
+++
+++    ///<summary>Close all contained resources, both the HttpReq and client.</summary>
+++    public void Close()
+++      {
+++	if (_httpReq != null)
+++	  {
+++	    _httpReq.Close();
+++	    _httpReq = null;
+++	  }
+++	
+++	if (_client != null)
+++	  {
+++	    _client.Close();
+++	    _client = null;
+++	  }
+++      }
+++  }
+++}
++Index: XmlRpcResponseDeserializer.cs
++===================================================================
++--- XmlRpcResponseDeserializer.cs	(revision 0)
+++++ XmlRpcResponseDeserializer.cs	(revision 0)
++@@ -0,0 +1,65 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.IO;
+++  using System.Xml;
+++
+++  /// <summary>Class to deserialize XML data representing a response.</summary>
+++  public class XmlRpcResponseDeserializer : XmlRpcDeserializer
+++  {
+++    static private XmlRpcResponseDeserializer _singleton;
+++    /// <summary>A static singleton instance of this deserializer.</summary>
+++    [Obsolete("This object is now thread safe, just use an instance.",false)]
+++    static public XmlRpcResponseDeserializer Singleton
+++      {
+++	get
+++	  {
+++	    if (_singleton == null)
+++	      _singleton = new XmlRpcResponseDeserializer();
+++
+++	    return _singleton;
+++	  }
+++      }
+++
+++    /// <summary>Static method that parses XML data into a response using the Singleton.</summary>
+++    /// <param name="xmlData"><c>StreamReader</c> containing an XML-RPC response.</param>
+++    /// <returns><c>XmlRpcResponse</c> object resulting from the parse.</returns>
+++    override public Object Deserialize(TextReader xmlData)
+++      {
+++	XmlTextReader reader = new XmlTextReader(xmlData);
+++	XmlRpcResponse response = new XmlRpcResponse();
+++	bool done = false;
+++	
+++	lock(this)
+++	  {
+++	    Reset();
+++	    
+++	    while (!done && reader.Read())
+++	      {
+++		DeserializeNode(reader); // Parent parse...
+++		switch (reader.NodeType)
+++		  {
+++		  case XmlNodeType.EndElement:
+++		    switch (reader.Name)
+++		      {
+++		      case FAULT:
+++			response.Value = _value;
+++			response.IsFault = true;
+++			break;
+++		      case PARAM:
+++			response.Value = _value;
+++			_value = null;
+++			_text = null;
+++			break;
+++		      }
+++		    break;
+++		  default:
+++		    break;
+++		  }	
+++	      }
+++	  }
+++	return response;
+++      }
+++  }
+++}
++Index: AssemblyInfo.cs
++===================================================================
++--- AssemblyInfo.cs	(revision 0)
+++++ AssemblyInfo.cs	(revision 0)
++@@ -0,0 +1,8 @@
+++using System.Reflection;
+++
+++[assembly: AssemblyVersion("1.10.*")]
+++[assembly: AssemblyTitle("XmlRpcCS")]
+++[assembly: AssemblyCompany("Ronin Consulting Inc")]
+++[assembly: AssemblyDescription("XML RPC client and server")]
+++
+++
++Index: XmlRpcServer.cs
++===================================================================
++--- XmlRpcServer.cs	(revision 0)
+++++ XmlRpcServer.cs	(revision 0)
++@@ -0,0 +1,236 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.IO;
+++  using System.Net;
+++  using System.Net.Sockets;
+++  using System.Text;
+++  using System.Threading;
+++  using System.Xml;
+++
+++  /// <summary>A restricted HTTP server for use with XML-RPC.</summary>
+++  /// <remarks>It only handles POST requests, and only POSTs representing XML-RPC calls.
+++  /// In addition to dispatching requests it also provides a registry for request handlers. 
+++  /// </remarks>
+++public class XmlRpcServer : IEnumerable
+++  {
+++    const int RESPONDER_COUNT = 10;
+++    private TcpListener _myListener;
+++    private int _port;
+++    private IPAddress _address;
+++    private IDictionary _handlers;
+++    private XmlRpcSystemObject _system;
+++    private WaitCallback _wc;
+++
+++    ///<summary>Constructor with port and address.</summary>
+++    ///<remarks>This constructor sets up a TcpListener listening on the
+++    ///given port and address. It also calls a Thread on the method StartListen().</remarks>
+++    ///<param name="address"><c>IPAddress</c> value of the address to listen on.</param>
+++    ///<param name="port"><c>Int</c> value of the port to listen on.</param>
+++    public XmlRpcServer(IPAddress address, int port)
+++      {
+++	_port = port;
+++	_address = address;
+++	_handlers = new Hashtable();
+++	_system = new XmlRpcSystemObject(this);
+++	_wc = new WaitCallback(WaitCallback);
+++      }
+++
+++    ///<summary>Basic constructor.</summary>
+++    ///<remarks>This constructor sets up a TcpListener listening on the
+++    ///given port. It also calls a Thread on the method StartListen(). IPAddress.Any
+++    ///is assumed as the address here.</remarks>
+++    ///<param name="port"><c>Int</c> value of the port to listen on.</param>
+++    public XmlRpcServer(int port) : this(IPAddress.Any, port) {}
+++
+++    /// <summary>Start the server.</summary>
+++    public void Start()
+++      {
+++	try
+++	  {
+++	    Stop();
+++	    //start listing on the given port
+++	    //	    IPAddress addr = IPAddress.Parse("127.0.0.1");
+++	    lock (this)
+++	      {
+++		_myListener = new TcpListener(_port);
+++		_myListener.Start();
+++		//start the thread which calls the method 'StartListen'
+++		Thread th = new Thread(new ThreadStart(StartListen));
+++		th.Start();
+++	      }
+++	  }
+++	catch(Exception e)
+++	  {
+++	    Logger.WriteEntry("An Exception Occurred while Listening :" +e.ToString(), LogLevel.Error);
+++	  }
+++      }
+++
+++    /// <summary>Stop the server.</summary>
+++    public void Stop() 
+++      {
+++	try
+++	  {
+++	    if (_myListener != null) 
+++	      {
+++		lock (this)
+++		  {
+++		    _myListener.Stop();
+++		    _myListener = null;
+++		  }
+++	      }
+++	  } catch(Exception e)
+++	    {
+++	      Logger.WriteEntry("An Exception Occurred while stopping :" +
+++				e.ToString(), LogLevel.Error);
+++	    }
+++      }
+++
+++    /// <summary>Get an enumeration of my XML-RPC handlers.</summary>
+++    /// <returns><c>IEnumerable</c> the handler enumeration.</returns>
+++    public IEnumerator GetEnumerator()
+++      {
+++	return _handlers.GetEnumerator();
+++      }
+++
+++    /// <summary>Retrieve a handler by name.</summary>
+++    /// <param name="name"><c>String</c> naming a handler</param>
+++    /// <returns><c>Object</c> that is the handler.</returns>
+++    public Object this [String name]
+++      {
+++	get { return _handlers[name]; }
+++      }
+++
+++    ///<summary>
+++    ///This method Accepts new connections and dispatches them when appropriate.
+++    ///</summary>
+++    public void StartListen()
+++      {
+++	while(true && _myListener != null)
+++	  {
+++	    //Accept a new connection
+++	    XmlRpcResponder responder = new XmlRpcResponder(this, _myListener.AcceptTcpClient());
+++	    ThreadPool.QueueUserWorkItem(_wc,responder);
+++	  }
+++      }
+++
+++
+++    ///<summary>
+++    ///Add an XML-RPC handler object by name.
+++    ///</summary>
+++    ///<param name="name"><c>String</c> XML-RPC dispatch name of this object.</param>
+++    ///<param name="obj"><c>Object</c> The object that is the XML-RPC handler.</param>
+++    public void Add(String name, Object obj)
+++      {
+++	_handlers.Add(name,obj);
+++      }
+++
+++    ///<summary>Return a C# object.method name for and XML-RPC object.method name pair.</summary>
+++    ///<param name="methodName">The XML-RPC object.method.</param>
+++    ///<returns><c>String</c> of form object.method for the underlying C# method.</returns>
+++    public String MethodName(String methodName)
+++      {
+++	int dotAt = methodName.LastIndexOf('.');
+++
+++	if (dotAt == -1)
+++	  {
+++	    throw new XmlRpcException(XmlRpcErrorCodes.SERVER_ERROR_METHOD, 
+++				      XmlRpcErrorCodes.SERVER_ERROR_METHOD_MSG + ": Bad method name " + methodName);
+++	  }
+++	  
+++	String objectName = methodName.Substring(0,dotAt);
+++	Object target = _handlers[objectName];
+++
+++	if (target == null)
+++	  {
+++	    throw new XmlRpcException(XmlRpcErrorCodes.SERVER_ERROR_METHOD, 
+++				      XmlRpcErrorCodes.SERVER_ERROR_METHOD_MSG + ": Object " + objectName + " not found");
+++	  }
+++
+++	return target.GetType().FullName + "." + methodName.Substring(dotAt + 1);
+++      }
+++
+++    ///<summary>Invoke a method described in a request.</summary>
+++    ///<param name="req"><c>XmlRpcRequest</c> containing a method descriptions.</param>
+++    /// <seealso cref="XmlRpcSystemObject.Invoke"/>
+++    /// <seealso cref="XmlRpcServer.Invoke(String,String,IList)"/>
+++    public Object Invoke(XmlRpcRequest req)
+++      {
+++	return Invoke(req.MethodNameObject, req.MethodNameMethod, req.Params);
+++      }
+++
+++    ///<summary>Invoke a method on a named handler.</summary>
+++    ///<param name="objectName"><c>String</c> The name of the handler.</param>
+++    ///<param name="methodName"><c>String</c> The name of the method to invoke on the handler.</param>
+++    ///<param name="parameters"><c>IList</c> The parameters to invoke the method with.</param>
+++    /// <seealso cref="XmlRpcSystemObject.Invoke"/>
+++    public Object Invoke(String objectName, String methodName, IList parameters)
+++      {
+++	Object target = _handlers[objectName];
+++
+++	if (target == null)
+++	  {
+++	    throw new XmlRpcException(XmlRpcErrorCodes.SERVER_ERROR_METHOD, 
+++				      XmlRpcErrorCodes.SERVER_ERROR_METHOD_MSG + ": Object " + objectName + " not found");
+++	  }
+++
+++	return XmlRpcSystemObject.Invoke(target, methodName, parameters);
+++      }
+++
+++    /// <summary>The method the thread pool invokes when a thread is available to handle an HTTP request.</summary>
+++    /// <param name="responder">TcpClient from the socket accept.</param>
+++    public void WaitCallback(object responder)
+++      {
+++	XmlRpcResponder resp = (XmlRpcResponder)responder;
+++
+++	if (resp.HttpReq.HttpMethod == "POST")
+++	  {
+++	    try
+++	      {
+++		resp.Respond();
+++	      }
+++	    catch (Exception e)
+++	      {
+++		Logger.WriteEntry("Failed on post: " + e, LogLevel.Error);
+++	      }
+++	  }
+++	else
+++	  {
+++	    Logger.WriteEntry("Only POST methods are supported: " + resp.HttpReq.HttpMethod + 
+++			      " ignored", LogLevel.Error);
+++	  }
+++
+++	resp.Close();
+++      }
+++
+++    /// <summary>
+++    /// This function send the Header Information to the client (Browser)
+++    /// </summary>
+++    /// <param name="sHttpVersion">HTTP Version</param>
+++    /// <param name="sMIMEHeader">Mime Type</param>
+++    /// <param name="iTotBytes">Total Bytes to be sent in the body</param>
+++    /// <param name="sStatusCode"></param>
+++    /// <param name="output">Socket reference</param>
+++    static public void HttpHeader(string sHttpVersion, string sMIMEHeader, long iTotBytes, string sStatusCode, TextWriter output)
+++      {
+++	String sBuffer = "";
+++			
+++	// if Mime type is not provided set default to text/html
+++	if (sMIMEHeader.Length == 0 )
+++	  {
+++	    sMIMEHeader = "text/html";  // Default Mime Type is text/html
+++	  }
+++
+++	sBuffer += sHttpVersion + sStatusCode + "\r\n";
+++	sBuffer +=  "Connection: close\r\n";
+++	if (iTotBytes > 0)
+++	  sBuffer += "Content-Length: " + iTotBytes + "\r\n";
+++	sBuffer += "Server: XmlRpcServer \r\n";
+++	sBuffer += "Content-Type: " + sMIMEHeader + "\r\n";
+++	sBuffer += "\r\n";
+++
+++	output.Write(sBuffer);
+++      }
+++  }
+++}
++Index: XmlRpcErrorCodes.cs
++===================================================================
++--- XmlRpcErrorCodes.cs	(revision 0)
+++++ XmlRpcErrorCodes.cs	(revision 0)
++@@ -0,0 +1,53 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++
+++  /// <summary>Standard XML-RPC error codes.</summary>
+++  public class XmlRpcErrorCodes
+++  {
+++    /// <summary></summary>
+++    public const int PARSE_ERROR_MALFORMED = -32700;
+++    /// <summary></summary>
+++    public const String PARSE_ERROR_MALFORMED_MSG = "Parse Error, not well formed";
+++
+++    /// <summary></summary>
+++    public const int PARSE_ERROR_ENCODING = -32701;
+++    /// <summary></summary>
+++    public const String PARSE_ERROR_ENCODING_MSG = "Parse Error, unsupported encoding";
+++
+++    /**
+++       -32702 ---> parse error. invalid character for encoding
+++       -32600 ---> server error. invalid xml-rpc. not conforming to spec.
+++    **/
+++
+++    /// <summary></summary>
+++    public const int SERVER_ERROR_METHOD = -32601;
+++    /// <summary></summary>
+++    public const String SERVER_ERROR_METHOD_MSG = "Server Error, requested method not found";
+++
+++    /// <summary></summary>
+++    public const int SERVER_ERROR_PARAMS = -32602;
+++    /// <summary></summary>
+++    public const String SERVER_ERROR_PARAMS_MSG = "Server Error, invalid method parameters";
+++
+++    /**
+++       -32603 ---> server error. internal xml-rpc error
+++    **/
+++
+++    /// <summary></summary>
+++    public const int APPLICATION_ERROR = -32500;
+++    /// <summary></summary>
+++    public const String APPLICATION_ERROR_MSG = "Application Error";
+++
+++    /**
+++       -32400 ---> system error
+++    **/
+++
+++    /// <summary></summary>
+++    public const int TRANSPORT_ERROR = -32300;
+++    /// <summary></summary>
+++    public const String TRANSPORT_ERROR_MSG = "Transport Layer Error";
+++  }
+++}
+++
+++
++Index: XmlRpcSerializer.cs
++===================================================================
++--- XmlRpcSerializer.cs	(revision 0)
+++++ XmlRpcSerializer.cs	(revision 0)
++@@ -0,0 +1,109 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.IO;
+++  using System.Xml;
+++
+++  /// <summary>Base class of classes serializing data to XML-RPC's XML format.</summary>
+++  /// <remarks>This class handles the basic type conversions like Integer to &lt;i4&gt;. </remarks>
+++  /// <seealso cref="XmlRpcXmlTokens"/>
+++  public class XmlRpcSerializer : XmlRpcXmlTokens
+++  {
+++
+++    /// <summary>Serialize the <c>XmlRpcRequest</c> to the output stream.</summary>
+++    /// <param name="output">An <c>XmlTextWriter</c> stream to write data to.</param>
+++    /// <param name="obj">An <c>Object</c> to serialize.</param>
+++    /// <seealso cref="XmlRpcRequest"/>
+++    virtual public void Serialize(XmlTextWriter output, Object obj)
+++      {
+++      }
+++
+++    /// <summary>Serialize the <c>XmlRpcRequest</c> to a String.</summary>
+++    /// <remarks>Note this may represent a real memory hog for a large request.</remarks>
+++    /// <param name="obj">An <c>Object</c> to serialize.</param>
+++    /// <returns><c>String</c> containing XML-RPC representation of the request.</returns>
+++    /// <seealso cref="XmlRpcRequest"/>
+++    public String Serialize(Object obj)
+++      {
+++	StringWriter strBuf = new StringWriter();
+++	XmlTextWriter xml = new XmlTextWriter(strBuf);
+++	xml.Formatting = Formatting.Indented;
+++	xml.Indentation = 4;
+++	Serialize(xml, obj);
+++	xml.Flush();
+++	String returns = strBuf.ToString();
+++	xml.Close();
+++	return returns;
+++      }
+++
+++    /// <remarks>Serialize the object to the output stream.</remarks>
+++    /// <param name="output">An <c>XmlTextWriter</c> stream to write data to.</param>
+++    /// <param name="obj">An <c>Object</c> to serialize.</param>
+++    public void SerializeObject(XmlTextWriter output, Object obj)
+++      {
+++	if (obj == null)
+++	  return;
+++
+++	if (obj is byte[])
+++	  {
+++	    byte[] ba = (byte[])obj;
+++	    output.WriteStartElement(BASE64);
+++	    output.WriteBase64(ba,0,ba.Length);
+++	    output.WriteEndElement();
+++	  }
+++	else if (obj is String)
+++	  {
+++	    output.WriteElementString(STRING,obj.ToString());
+++	  }
+++	else if (obj is Int32)
+++	  {
+++	    output.WriteElementString(INT,obj.ToString());
+++	  }
+++	else if (obj is DateTime)
+++	  {
+++	    output.WriteElementString(DATETIME,((DateTime)obj).ToString(ISO_DATETIME));
+++	  }
+++	else if (obj is Double)
+++	  {
+++	    output.WriteElementString(DOUBLE,obj.ToString());
+++	  }
+++	else if (obj is Boolean)
+++	  {
+++	    output.WriteElementString(BOOLEAN, ((((Boolean)obj) == true)?"1":"0"));
+++	  }
+++	else if (obj is IList)
+++	  {
+++	    output.WriteStartElement(ARRAY);
+++	    output.WriteStartElement(DATA);
+++	    if (((ArrayList)obj).Count > 0)
+++	      {
+++		foreach (Object member in ((IList)obj))
+++		  {
+++		    output.WriteStartElement(VALUE);
+++		    SerializeObject(output,member);
+++		    output.WriteEndElement();
+++		  }
+++	      }
+++	    output.WriteEndElement();
+++	    output.WriteEndElement();
+++	  }
+++	else if (obj is IDictionary)
+++	  {
+++	    IDictionary h = (IDictionary)obj;
+++	    output.WriteStartElement(STRUCT);	    
+++	    foreach (String key in h.Keys)
+++	      {
+++		output.WriteStartElement(MEMBER);
+++		output.WriteElementString(NAME,key);
+++		output.WriteStartElement(VALUE);
+++		SerializeObject(output,h[key]);
+++		output.WriteEndElement();
+++		output.WriteEndElement();
+++	      }
+++	    output.WriteEndElement();
+++	  }
+++
+++      }
+++  }
+++}
++Index: XmlRpcSystemObject.cs
++===================================================================
++--- XmlRpcSystemObject.cs	(revision 0)
+++++ XmlRpcSystemObject.cs	(revision 0)
++@@ -0,0 +1,251 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.Reflection;
+++
+++  /// <summary> XML-RPC System object implementation of extended specifications.</summary>
+++  [XmlRpcExposed]
+++  public class XmlRpcSystemObject
+++  {
+++    private XmlRpcServer _server;
+++    static private IDictionary _methodHelp = new Hashtable();
+++
+++    /// <summary>Static <c>IDictionary</c> to hold mappings of method name to associated documentation String</summary>
+++    static public IDictionary MethodHelp {
+++      get { return _methodHelp; }
+++    }
+++
+++    /// <summary>Constructor.</summary>
+++    /// <param name="server"><c>XmlRpcServer</c> server to be the system object for.</param>
+++    public XmlRpcSystemObject(XmlRpcServer server)
+++      {
+++	_server = server;
+++	server.Add("system",this);
+++	_methodHelp.Add(this.GetType().FullName + ".methodHelp", "Return a string description.");
+++      }
+++
+++    /// <summary>Invoke a method on a given object.</summary>
+++    /// <remarks>Using reflection, and respecting the <c>XmlRpcExposed</c> attribute,
+++    /// invoke the <paramref>methodName</paramref> method on the <paramref>target</paramref>
+++    /// instance with the <paramref>parameters</paramref> provided. All this packages other <c>Invoke</c> methods 
+++    /// end up calling this.</remarks>
+++    /// <returns><c>Object</c> the value the invoked method returns.</returns>
+++    /// <exception cref="XmlRpcException">If method does not exist, is not exposed, parameters invalid, or invocation
+++    /// results in an exception. Note, the <c>XmlRpcException.Code</c> will indicate cause.</exception>
+++    static public Object Invoke(Object target, String methodName, IList parameters)
+++      {
+++	if (target == null)
+++	  throw new XmlRpcException(XmlRpcErrorCodes.SERVER_ERROR_METHOD,
+++				    XmlRpcErrorCodes.SERVER_ERROR_METHOD_MSG + ": Invalid target object.");
+++	  
+++	Type type = target.GetType();
+++	MethodInfo method = type.GetMethod(methodName);
+++
+++	try
+++	  {
+++	    if (!XmlRpcExposedAttribute.ExposedMethod(target,methodName))
+++	      throw new XmlRpcException(XmlRpcErrorCodes.SERVER_ERROR_METHOD,
+++					XmlRpcErrorCodes.SERVER_ERROR_METHOD_MSG + ": Method " + methodName + " is not exposed.");
+++	  }
+++	catch (MissingMethodException me)
+++	  {
+++	    throw new XmlRpcException(XmlRpcErrorCodes.SERVER_ERROR_METHOD,
+++				      XmlRpcErrorCodes.SERVER_ERROR_METHOD_MSG + ": " + me.Message);
+++	  }
+++
+++	Object[] args = new Object[parameters.Count];
+++
+++	int index = 0;
+++	foreach (Object arg in parameters)
+++	  {
+++	    args[index] = arg;
+++	    index++;
+++	  }
+++
+++	try
+++	  {
+++	    Object retValue = method.Invoke(target, args);
+++	    if (retValue == null)
+++	      throw new XmlRpcException(XmlRpcErrorCodes.APPLICATION_ERROR,
+++					XmlRpcErrorCodes.APPLICATION_ERROR_MSG + ": Method returned NULL.");
+++	    return retValue;
+++	  }
+++	catch (XmlRpcException e)
+++	  {
+++	    throw e;
+++	  }
+++	catch (ArgumentException ae)
+++	  {
+++	    Logger.WriteEntry(XmlRpcErrorCodes.SERVER_ERROR_PARAMS_MSG + ": " + ae.Message,
+++			      LogLevel.Information);
+++	    String call = methodName + "( ";
+++	    foreach (Object o in args)
+++	      {
+++		call += o.GetType().Name;
+++		call += " ";
+++	      }
+++	    call += ")";
+++	    throw new XmlRpcException(XmlRpcErrorCodes.SERVER_ERROR_PARAMS,
+++				      XmlRpcErrorCodes.SERVER_ERROR_PARAMS_MSG + ": Arguement type mismatch invoking " + call);
+++	  }
+++	catch (TargetParameterCountException tpce)
+++	  {
+++	    Logger.WriteEntry(XmlRpcErrorCodes.SERVER_ERROR_PARAMS_MSG + ": " + tpce.Message,
+++			      LogLevel.Information);
+++	    throw new XmlRpcException(XmlRpcErrorCodes.SERVER_ERROR_PARAMS,
+++				      XmlRpcErrorCodes.SERVER_ERROR_PARAMS_MSG + ": Arguement count mismatch invoking " + methodName);
+++	  }
+++	catch (TargetInvocationException tie)
+++	  {
+++	    throw new XmlRpcException(XmlRpcErrorCodes.APPLICATION_ERROR,
+++				      XmlRpcErrorCodes.APPLICATION_ERROR_MSG + " Invoked method " + methodName + ": " + tie.Message);
+++	  }
+++      }
+++
+++    /// <summary>List methods available on all handlers of this server.</summary>
+++    /// <returns><c>IList</c> An array of <c>Strings</c>, each <c>String</c> will have form "object.method".</returns>
+++    [XmlRpcExposed]
+++      public IList listMethods()
+++      {
+++	IList methods = new ArrayList();
+++	Boolean considerExposure;
+++
+++	foreach (DictionaryEntry handlerEntry in _server)
+++	  {
+++	    considerExposure = XmlRpcExposedAttribute.IsExposed(handlerEntry.Value.GetType());
+++
+++	    foreach (MemberInfo mi in handlerEntry.Value.GetType().GetMembers())
+++	      {
+++ 		if (mi.MemberType != MemberTypes.Method)
+++ 		  continue;
+++
+++		if(!((MethodInfo)mi).IsPublic)
+++		  continue;
+++
+++		if (considerExposure && !XmlRpcExposedAttribute.IsExposed(mi))
+++		  continue;
+++
+++		methods.Add(handlerEntry.Key + "." + mi.Name);
+++	      }
+++	  }
+++
+++	return methods;
+++      }
+++
+++    /// <summary>Given a method name return the possible signatures for it.</summary>
+++    /// <param name="name"><c>String</c> The object.method name to look up.</param>
+++    /// <returns><c>IList</c> Of arrays of signatures.</returns>
+++    [XmlRpcExposed]
+++      public IList methodSignature(String name)
+++      {
+++	IList signatures = new ArrayList();
+++	int index = name.IndexOf('.');
+++
+++	if (index < 0)
+++	  return signatures;
+++
+++	String oName = name.Substring(0,index);
+++	Object obj = _server[oName];
+++
+++	if (obj == null)
+++	  return signatures;
+++
+++	MemberInfo[] mi = obj.GetType().GetMember(name.Substring(index + 1));
+++	
+++	if (mi == null || mi.Length != 1) // for now we want a single signature
+++	  return signatures;
+++
+++	MethodInfo method;
+++
+++	try
+++	  {
+++	    method = (MethodInfo)mi[0];
+++	  }
+++	catch (Exception e)
+++	  {
+++	    Logger.WriteEntry("Attempted methodSignature call on " + mi[0] + " caused: " + e,
+++			      LogLevel.Information);
+++	    return signatures;
+++	  }
+++
+++	if (!method.IsPublic)
+++	  return signatures;
+++
+++	IList signature = new ArrayList();
+++	signature.Add(method.ReturnType.Name);
+++
+++	foreach (ParameterInfo param in method.GetParameters())
+++	  {
+++	    signature.Add(param.ParameterType.Name);
+++	  }
+++
+++
+++	signatures.Add(signature);
+++
+++	return signatures;
+++      }
+++
+++    /// <summary>Help for given method signature. Not implemented yet.</summary>
+++    /// <param name="name"><c>String</c> The object.method name to look up.</param>
+++    /// <returns><c>String</c> help text. Rich HTML text.</returns>
+++    [XmlRpcExposed]
+++      public String methodHelp(String name)
+++      {
+++	String help = null;
+++
+++	try 
+++	  {
+++	    help = (String)_methodHelp[_server.MethodName(name)];
+++	  }
+++	catch (XmlRpcException e)
+++	  {
+++	    throw e;
+++	  }
+++	catch (Exception) { /* ignored */ };
+++
+++	if (help == null)
+++	  help = "No help available for: " + name;
+++
+++	return help;
+++      }
+++
+++    /// <summary>Boxcarring support method.</summary>
+++    /// <param name="calls"><c>IList</c> of calls</param>
+++    /// <returns><c>ArrayList</c> of results/faults.</returns>
+++    [XmlRpcExposed]
+++      public IList multiCall(IList calls)
+++      {
+++	IList responses = new ArrayList();
+++	XmlRpcResponse fault = new XmlRpcResponse();
+++
+++	foreach (IDictionary call in calls)
+++	  {
+++	    try
+++	      {
+++		XmlRpcRequest req = new XmlRpcRequest((String)call[XmlRpcXmlTokens.METHOD_NAME],
+++						      (ArrayList)call[XmlRpcXmlTokens.PARAMS]);
+++		Object results = _server.Invoke(req);
+++		IList response = new ArrayList();
+++		response.Add(results);
+++		responses.Add(response);
+++	      }
+++	    catch (XmlRpcException e)
+++	      {
+++		fault.SetFault(e.FaultCode, e.FaultString);
+++		responses.Add(fault.Value);
+++	      }
+++	    catch (Exception e2)
+++	      {
+++		fault.SetFault(XmlRpcErrorCodes.APPLICATION_ERROR, 
+++			       XmlRpcErrorCodes.APPLICATION_ERROR_MSG + ": " + e2.Message);
+++		responses.Add(fault.Value);
+++	      }
+++	  }
+++
+++	return responses;
+++      }
+++
+++  }
+++}
+++
++Index: SimpleHttpRequest.cs
++===================================================================
++--- SimpleHttpRequest.cs	(revision 0)
+++++ SimpleHttpRequest.cs	(revision 0)
++@@ -0,0 +1,204 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.IO;
+++  using System.Net.Sockets;
+++  using System.Collections;
+++
+++  ///<summary>Very basic HTTP request handler.</summary>
+++  ///<remarks>This class is designed to accept a TcpClient and treat it as an HTTP request.
+++  /// It will do some basic header parsing and manage the input and output streams associated
+++  /// with the request.</remarks>
+++  public class SimpleHttpRequest
+++  {
+++    private String _httpMethod = null;
+++    private String _protocol;
+++    private String _filePathFile = null;
+++    private String _filePathDir = null;
+++    private String __filePath;
+++    private TcpClient _client;
+++    private StreamReader _input;
+++    private StreamWriter _output;
+++    private Hashtable _headers;
+++
+++    /// <summary>A constructor which accepts the TcpClient.</summary>
+++    /// <remarks>It creates the associated input and output streams, determines the request type,
+++    /// and parses the remaining HTTP header.</remarks>
+++    /// <param name="client">The <c>TcpClient</c> associated with the HTTP connection.</param>
+++    public SimpleHttpRequest(TcpClient client)
+++      {
+++	_client = client;
+++	_output = new StreamWriter(client.GetStream());
+++	_input = new StreamReader(client.GetStream());
+++	GetRequestMethod();
+++	GetRequestHeaders();
+++      }
+++
+++    /// <summary>The output <c>StreamWriter</c> associated with the request.</summary>
+++    public StreamWriter Output
+++      {
+++	get { return _output; }
+++      }
+++
+++    /// <summary>The input <c>StreamReader</c> associated with the request.</summary>
+++    public StreamReader Input
+++      {
+++	get { return _input; }
+++      }
+++
+++    /// <summary>The <c>TcpClient</c> with the request.</summary>
+++    public TcpClient Client
+++      {
+++	get { return _client; }
+++      }
+++
+++    private String _filePath
+++    {
+++      get { return __filePath; }
+++      set 
+++	{
+++	  __filePath = value;
+++	  _filePathDir = null;
+++	  _filePathFile = null;
+++	}
+++    }
+++
+++    /// <summary>The type of HTTP request (i.e. PUT, GET, etc.).</summary>
+++    public String HttpMethod 
+++      {
+++	get { return _httpMethod; }
+++      }
+++
+++    /// <summary>The level of the HTTP protocol.</summary>
+++    public String Protocol
+++      {
+++	get { return _protocol; }
+++      }
+++
+++    /// <summary>The "path" which is part of any HTTP request.</summary>
+++    public String FilePath
+++      {
+++	get { return _filePath; }
+++      }
+++
+++    /// <summary>The file portion of the "path" which is part of any HTTP request.</summary>
+++    public String FilePathFile
+++      {
+++	get
+++	  {
+++	    if (_filePathFile != null)
+++	      return _filePathFile;
+++
+++	    int i = FilePath.LastIndexOf("/");
+++
+++	    if (i == -1)
+++	      return "";
+++	    
+++	    i++;
+++	    _filePathFile = FilePath.Substring(i, FilePath.Length - i);
+++	    return _filePathFile;
+++	  }
+++      }
+++
+++    /// <summary>The directory portion of the "path" which is part of any HTTP request.</summary>
+++    public String FilePathDir
+++      {
+++	get
+++	  {
+++	    if (_filePathDir != null)
+++	      return _filePathDir;
+++
+++	    int i = FilePath.LastIndexOf("/");
+++
+++	    if (i == -1)
+++	      return "";
+++	    
+++	    i++;
+++	    _filePathDir = FilePath.Substring(0, i);
+++	    return _filePathDir;
+++	  }
+++      }
+++
+++    private void GetRequestMethod()
+++      {
+++	string req = _input.ReadLine();
+++	if (req == null)
+++	  throw new ApplicationException("Void request.");
+++
+++	if (0 == String.Compare("GET ", req.Substring (0, 4), true))
+++	  _httpMethod = "GET";
+++	else if (0 == String.Compare("POST ", req.Substring (0, 5), true))
+++	  _httpMethod = "POST";
+++	else
+++	  throw new InvalidOperationException("Unrecognized method in query: " + req);
+++
+++	req = req.TrimEnd ();
+++	int idx = req.IndexOf(' ') + 1;
+++	if (idx >= req.Length)
+++	  throw new ApplicationException ("What do you want?");
+++
+++	string page_protocol = req.Substring(idx);
+++	int idx2 = page_protocol.IndexOf(' ');
+++	if (idx2 == -1)
+++	  idx2 = page_protocol.Length;
+++		
+++	_filePath = page_protocol.Substring(0, idx2).Trim();
+++	_protocol = page_protocol.Substring(idx2).Trim();
+++      }
+++
+++    private void GetRequestHeaders()
+++	{
+++	    String line;
+++	    int idx;
+++
+++	    _headers = new Hashtable();
+++
+++	    while ((line = _input.ReadLine ()) != "") 
+++		{
+++		    if (line == null)
+++			{
+++			    break;
+++			}
+++
+++		    idx = line.IndexOf (':');
+++		    if (idx == -1 || idx == line.Length - 1)
+++			{
+++			  Logger.WriteEntry("Malformed header line: " + line, LogLevel.Information);
+++			  continue;
+++			}
+++
+++		    String key = line.Substring (0, idx);
+++		    String value = line.Substring (idx + 1);
+++
+++		    try 
+++			{
+++			    _headers.Add(key, value);
+++			} 
+++		    catch (Exception) 
+++			{
+++			  Logger.WriteEntry("Duplicate header key in line: " + line, LogLevel.Information);
+++			}
+++		}
+++	}
+++
+++    /// <summary>
+++    /// Format the object contents into a useful string representation.
+++    /// </summary>
+++    ///<returns><c>String</c> representation of the <c>SimpleHttpRequest</c> as the <i>HttpMethod FilePath Protocol</i>.</returns>
+++    override public String ToString()
+++      {
+++	return HttpMethod + " " + FilePath + " " + Protocol;
+++      }
+++
+++    /// <summary>
+++    /// Close the <c>SimpleHttpRequest</c>. This flushes and closes all associated io streams.
+++    /// </summary>
+++    public void Close()
+++      {
+++	_output.Flush();
+++	_output.Close();
+++	_input.Close();
+++	_client.Close();
+++      }
+++  }
+++}
++Index: XmlRpcClientProxy.cs
++===================================================================
++--- XmlRpcClientProxy.cs	(revision 0)
+++++ XmlRpcClientProxy.cs	(revision 0)
++@@ -0,0 +1,61 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Runtime.Remoting.Proxies;
+++  using System.Runtime.Remoting.Messaging;
+++
+++  /// <summary>This class provides support for creating local proxies of XML-RPC remote objects</summary>
+++  /// <remarks>
+++  /// To create a local proxy you need to create a local C# interface and then, via <i>createProxy</i>
+++  /// associate that interface with a remote object at a given URL.
+++  /// </remarks>
+++public class XmlRpcClientProxy : RealProxy
+++{
+++  private String _remoteObjectName;
+++  private String _url;
+++  private XmlRpcRequest _client = new XmlRpcRequest();
+++
+++  /// <summary>Factory method to create proxies.</summary>
+++  /// <remarks>
+++  /// To create a local proxy you need to create a local C# interface with methods that mirror those of the server object.
+++  /// Next, pass that interface into <c>createProxy</c> along with the object name and URL of the remote object and 
+++  /// cast the resulting object to the specifice interface.
+++  /// </remarks>
+++  /// <param name="remoteObjectName"><c>String</c> The name of the remote object.</param>
+++  /// <param name="url"><c>String</c> The URL of the remote object.</param>
+++  /// <param name="anInterface"><c>Type</c> The typeof() of a C# interface.</param>
+++  /// <returns><c>Object</c> A proxy for your specified interface. Cast to appropriate type.</returns>
+++  public static Object createProxy(String remoteObjectName, String url, Type anInterface)
+++    {
+++      return new XmlRpcClientProxy(remoteObjectName, url, anInterface).GetTransparentProxy();
+++    }
+++
+++  private XmlRpcClientProxy(String remoteObjectName, String url, Type t) : base(t)
+++    {
+++      _remoteObjectName = remoteObjectName;
+++      _url = url;
+++    }
+++
+++  /// <summary>The local method dispatcher - do not invoke.</summary>
+++  override public IMessage Invoke(IMessage msg)
+++    {
+++      IMethodCallMessage methodMessage = (IMethodCallMessage)msg;
+++
+++      _client.MethodName = _remoteObjectName + "." + methodMessage.MethodName;
+++      _client.Params.Clear();
+++      foreach (Object o in methodMessage.Args)
+++	_client.Params.Add(o);
+++
+++      try
+++	{
+++	  Object ret = _client.Invoke(_url);
+++	  return new ReturnMessage(ret,null,0,
+++				   methodMessage.LogicalCallContext, methodMessage);
+++	}
+++      catch (Exception e)
+++	{
+++	  return new ReturnMessage(e, methodMessage);
+++	}
+++    }
+++}
+++}
++Index: XmlRpcRequestSerializer.cs
++===================================================================
++--- XmlRpcRequestSerializer.cs	(revision 0)
+++++ XmlRpcRequestSerializer.cs	(revision 0)
++@@ -0,0 +1,51 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.Xml;
+++  using System.IO;
+++
+++  /// <summary>Class responsible for serializing an XML-RPC request.</summary>
+++  /// <remarks>This class handles the request envelope, depending on <c>XmlRpcSerializer</c>
+++  /// to serialize the payload.</remarks>
+++  /// <seealso cref="XmlRpcSerializer"/>
+++  public class XmlRpcRequestSerializer : XmlRpcSerializer
+++  {
+++    static private XmlRpcRequestSerializer _singleton;
+++    /// <summary>A static singleton instance of this deserializer.</summary>
+++    static public XmlRpcRequestSerializer Singleton
+++      {
+++	get
+++	  {
+++	    if (_singleton == null)
+++	      _singleton = new XmlRpcRequestSerializer();
+++
+++	    return _singleton;
+++	  }
+++      }
+++
+++    /// <summary>Serialize the <c>XmlRpcRequest</c> to the output stream.</summary>
+++    /// <param name="output">An <c>XmlTextWriter</c> stream to write data to.</param>
+++    /// <param name="obj">An <c>XmlRpcRequest</c> to serialize.</param>
+++    /// <seealso cref="XmlRpcRequest"/>
+++    override public void Serialize(XmlTextWriter output, Object obj)
+++      {
+++	XmlRpcRequest request = (XmlRpcRequest)obj;
+++	output.WriteStartDocument();
+++	output.WriteStartElement(METHOD_CALL);
+++	output.WriteElementString(METHOD_NAME,request.MethodName);
+++	output.WriteStartElement(PARAMS);
+++	foreach (Object param in request.Params)
+++	  {
+++	    output.WriteStartElement(PARAM);
+++	    output.WriteStartElement(VALUE);
+++	    SerializeObject(output, param);
+++	    output.WriteEndElement();
+++	    output.WriteEndElement();
+++	  }
+++
+++	output.WriteEndElement();
+++	output.WriteEndElement();
+++      }
+++  }
+++}
++Index: XmlRpcDeserializer.cs
++===================================================================
++--- XmlRpcDeserializer.cs	(revision 0)
+++++ XmlRpcDeserializer.cs	(revision 0)
++@@ -0,0 +1,195 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++  using System.Collections;
+++  using System.IO;
+++  using System.Xml;
+++  using System.Globalization;
+++
+++  /// <summary>Parser context, we maintain contexts in a stack to avoiding recursion. </summary>
+++  struct Context
+++  {
+++    public String Name;
+++    public Object Container;
+++  }
+++
+++  /// <summary>Basic XML-RPC data deserializer.</summary>
+++  /// <remarks>Uses <c>XmlTextReader</c> to parse the XML data. This level of the class 
+++  /// only handles the tokens common to both Requests and Responses. This class is not useful in and of itself
+++  /// but is designed to be subclassed.</remarks>
+++  public class XmlRpcDeserializer : XmlRpcXmlTokens
+++  {
+++    private static DateTimeFormatInfo _dateFormat = new DateTimeFormatInfo();
+++
+++    private Object _container;
+++    private Stack _containerStack;
+++
+++    /// <summary>Protected reference to last text.</summary>
+++    protected String _text;
+++    /// <summary>Protected reference to last deserialized value.</summary>
+++    protected Object _value;
+++    /// <summary>Protected reference to last name field.</summary>
+++    protected String _name;
+++
+++
+++    /// <summary>Basic constructor.</summary>
+++    public XmlRpcDeserializer()
+++      {
+++	Reset();
+++	_dateFormat.FullDateTimePattern = ISO_DATETIME;
+++      }
+++
+++    /// <summary>Static method that parses XML data into a response using the Singleton.</summary>
+++    /// <param name="xmlData"><c>StreamReader</c> containing an XML-RPC response.</param>
+++    /// <returns><c>Object</c> object resulting from the deserialization.</returns>
+++    virtual public Object Deserialize(TextReader xmlData)
+++      {
+++	return null;
+++      }
+++
+++    /// <summary>Protected method to parse a node in an XML-RPC XML stream.</summary>
+++    /// <remarks>Method deals with elements common to all XML-RPC data, subclasses of 
+++    /// this object deal with request/response spefic elements.</remarks>
+++    /// <param name="reader"><c>XmlTextReader</c> of the in progress parsing data stream.</param>
+++    protected void DeserializeNode(XmlTextReader reader)
+++      {
+++	switch (reader.NodeType)
+++	  {
+++	  case XmlNodeType.Element:
+++	    if (Logger.Delegate != null)
+++	      Logger.WriteEntry("START " + reader.Name, LogLevel.Information);
+++	    switch (reader.Name)
+++	      {
+++	      case VALUE:
+++		_value = null;
+++		_text = null;
+++		break;
+++	      case STRUCT:
+++		PushContext();
+++		_container = new Hashtable();
+++		break;
+++	      case ARRAY:
+++		PushContext();
+++		_container = new ArrayList();
+++		break;
+++	      }
+++	    break;
+++	  case XmlNodeType.EndElement:
+++	    if (Logger.Delegate != null)
+++	      Logger.WriteEntry("END " + reader.Name, LogLevel.Information);
+++	    switch (reader.Name)
+++	      {
+++	      case BASE64:
+++		_value = Convert.FromBase64String(_text);
+++		break;
+++	      case BOOLEAN:
+++		int val = Int16.Parse(_text);
+++		if (val == 0)
+++		  _value = false;
+++		else if (val == 1)
+++		  _value = true;
+++		break;
+++	      case STRING:
+++		_value = _text;
+++		break;
+++	      case DOUBLE:
+++		_value = Double.Parse(_text);
+++		break;
+++	      case INT:
+++	      case ALT_INT:
+++		_value = Int32.Parse(_text);
+++		break;
+++	      case DATETIME:
+++#if __MONO__
+++		    _value = DateParse(_text);
+++#else
+++		    _value = DateTime.ParseExact(_text, "F", _dateFormat);
+++#endif
+++		break;
+++	      case NAME:
+++		_name = _text;
+++		break;
+++	      case VALUE:
+++		if (_value == null)
+++		  _value = _text; // some kits don't use <string> tag, they just do <value>
+++
+++		if ((_container != null) && (_container is IList)) // in an array?  If so add value to it.
+++		  ((IList)_container).Add(_value);
+++		break;
+++	      case MEMBER:
+++		if ((_container != null) && (_container is IDictionary)) // in an struct?  If so add value to it.
+++		((IDictionary)_container).Add(_name, _value);
+++		break;
+++	      case ARRAY:
+++	      case STRUCT:
+++		_value = _container;
+++		PopContext();
+++		break;
+++	      }
+++	    break;
+++	  case XmlNodeType.Text:
+++	    if (Logger.Delegate != null)
+++	      Logger.WriteEntry("Text " + reader.Value, LogLevel.Information);
+++	    _text = reader.Value;
+++	    break;
+++	  default:
+++	    break;
+++	  }	
+++      }
+++
+++    /// <summary>Static method that parses XML in a <c>String</c> into a 
+++    /// request using the Singleton.</summary>
+++    /// <param name="xmlData"><c>String</c> containing an XML-RPC request.</param>
+++    /// <returns><c>XmlRpcRequest</c> object resulting from the parse.</returns>
+++    public Object Deserialize(String xmlData)
+++      {
+++	StringReader sr = new StringReader(xmlData);
+++	return Deserialize(sr);
+++      }
+++
+++    /// <summary>Pop a Context of the stack, an Array or Struct has closed.</summary>
+++    private void PopContext()
+++      {
+++	Context c = (Context)_containerStack.Pop();
+++	_container = c.Container;
+++	_name = c.Name;
+++      }
+++
+++    /// <summary>Push a Context on the stack, an Array or Struct has opened.</summary>
+++    private void PushContext()
+++      {
+++	Context context;
+++
+++	context.Container = _container;
+++	context.Name = _name;
+++
+++	_containerStack.Push(context);
+++      }
+++
+++    /// <summary>Reset the internal state of the deserializer.</summary>
+++    protected void Reset()
+++      {
+++	_text = null;
+++	_value = null;
+++	_name = null;
+++	_container = null;
+++	_containerStack = new Stack();
+++      }
+++
+++#if __MONO__
+++    private DateTime DateParse(String str)
+++      {
+++	int year = Int32.Parse(str.Substring(0,4));
+++	int month = Int32.Parse(str.Substring(4,2));
+++	int day = Int32.Parse(str.Substring(6,2));
+++	int hour = Int32.Parse(str.Substring(9,2));
+++	int min = Int32.Parse(str.Substring(12,2));
+++	int sec = Int32.Parse(str.Substring(15,2));
+++	return new DateTime(year,month,day,hour,min,sec);
+++      }
+++#endif
+++
+++  }
+++}
+++
+++
++Index: XmlRpcXmlTokens.cs
++===================================================================
++--- XmlRpcXmlTokens.cs	(revision 0)
+++++ XmlRpcXmlTokens.cs	(revision 0)
++@@ -0,0 +1,76 @@
+++namespace Nwc.XmlRpc
+++{
+++  using System;
+++
+++  /// <summary>Class collecting <c>String</c> tokens that are part of XML-RPC files.</summary>
+++  public class XmlRpcXmlTokens
+++  {
+++    /// <summary>C# formatting string to describe an ISO 8601 date.</summary>
+++    public const String ISO_DATETIME = "yyyyMMdd\\THH\\:mm\\:ss";
+++    /// <summary>Base64 field indicator.</summary>
+++    /// <remarks>Corresponds to the &lt;base64&gt; tag.</remarks>
+++    public const String BASE64 = "base64";
+++    /// <summary>String field indicator.</summary>
+++    /// <remarks>Corresponds to the &lt;string&gt; tag.</remarks>
+++    public const String STRING = "string";
+++    /// <summary>Integer field integer.</summary>
+++    /// <remarks>Corresponds to the &lt;i4&gt; tag.</remarks>
+++    public const String INT = "i4";
+++    /// <summary>Alternate integer field indicator.</summary>
+++    /// <remarks>Corresponds to the &lt;int&gt; tag.</remarks>
+++    public const String ALT_INT = "int";    
+++    /// <summary>Date field indicator.</summary>
+++    /// <remarks>Corresponds to the &lt;dateTime.iso8601&gt; tag.</remarks>
+++    public const String DATETIME = "dateTime.iso8601";
+++    /// <summary>Boolean field indicator.</summary>
+++    /// <remarks>Corresponds to the &lt;boolean&gt; tag.</remarks>
+++    public const String BOOLEAN = "boolean";
+++    /// <summary>Value token.</summary>
+++    /// <remarks>Corresponds to the &lt;value&gt; tag.</remarks>
+++    public const String VALUE = "value";
+++    /// <summary>Name token.</summary>
+++    /// <remarks>Corresponds to the &lt;name&gt; tag.</remarks>
+++    public const String NAME = "name";
+++    /// <summary>Array field indicator..</summary>
+++    /// <remarks>Corresponds to the &lt;array&gt; tag.</remarks>
+++    public const String ARRAY = "array";
+++    /// <summary>Data token.</summary>
+++    /// <remarks>Corresponds to the &lt;data&gt; tag.</remarks>
+++    public const String DATA = "data";
+++    /// <summary>Member token.</summary>
+++    /// <remarks>Corresponds to the &lt;member&gt; tag.</remarks>
+++    public const String MEMBER = "member";
+++    /// <summary>Stuct field indicator.</summary>
+++    /// <remarks>Corresponds to the &lt;struct&gt; tag.</remarks>
+++    public const String STRUCT = "struct";
+++    /// <summary>Double field indicator.</summary>
+++    /// <remarks>Corresponds to the &lt;double&gt; tag.</remarks>
+++    public const String DOUBLE = "double";
+++    /// <summary>Param token.</summary>
+++    /// <remarks>Corresponds to the &lt;param&gt; tag.</remarks>
+++    public const String PARAM = "param";
+++    /// <summary>Params token.</summary>
+++    /// <remarks>Corresponds to the &lt;params&gt; tag.</remarks>
+++    public const String PARAMS = "params";
+++    /// <summary>MethodCall token.</summary>
+++    /// <remarks>Corresponds to the &lt;methodCall&gt; tag.</remarks>
+++    public const String METHOD_CALL = "methodCall";
+++    /// <summary>MethodName token.</summary>
+++    /// <remarks>Corresponds to the &lt;methodName&gt; tag.</remarks>
+++    public const String METHOD_NAME = "methodName";
+++    /// <summary>MethodResponse token</summary>
+++    /// <remarks>Corresponds to the &lt;methodResponse&gt; tag.</remarks>
+++    public const String METHOD_RESPONSE = "methodResponse";
+++    /// <summary>Fault response token.</summary>
+++    /// <remarks>Corresponds to the &lt;fault&gt; tag.</remarks>
+++    public const String FAULT = "fault";
+++    /// <summary>FaultCode token.</summary>
+++    /// <remarks>Corresponds to the &lt;faultCode&gt; tag.</remarks>
+++    public const String FAULT_CODE = "faultCode";
+++    /// <summary>FaultString token.</summary>
+++    /// <remarks>Corresponds to the &lt;faultString&gt; tag.</remarks>
+++    public const String FAULT_STRING = "faultString";
+++  }
+++}
+++
+++
