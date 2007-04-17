@@ -1,19 +1,21 @@
 Summary:	GTK+ Last.fm player
 Summary(pl.UTF-8):	Odtwarzacz Last.fm dla GTK+
 Name:		last-exit
-Version:	4
+Version:	5
 Release:	1
 License:	GPL v2+
 Group:		X11/Applications/Multimedia
-Source0:	http://www.o-hand.com/~iain/last-exit/%{name}-%{version}.tar.bz2
-# Source0-md5:	5e4401bbad36d00894d3843cc2ef9338
+Source0:	http://lastexit-player.org/releases/%{name}-%{version}.tar.bz2
+# Source0-md5:	f316f39848fd3f25b12c4b9f07f20dda
 Patch0:		%{name}-exec.patch
 Patch1:		%{name}-desktop.patch
-URL:		http://www.o-hand.com/~iain/last-exit/
+Patch2:		%{name}-trunk_and_translation.patch
+URL:		http://lastexit-player.org/
 BuildRequires:	GConf2-devel >= 2.14.0
 BuildRequires:	dbus-glib-devel >= 0.71
 BuildRequires:	dotnet-gnome-sharp-devel >= 2.15.0
 BuildRequires:	gstreamer-plugins-base-devel >= 0.10.9
+BuildRequires:	libsexy-devel	>= 0.1.5
 BuildRequires:	mono-csharp >= 1.1.16.1
 BuildRequires:	rpmbuild(macros) >= 1.176
 Requires(post,preun):	GConf2 >= 2.14.0
@@ -33,8 +35,16 @@ Last Exit to odtwarzacz Last.fm.
 %setup -q
 %patch0 -p1
 %patch1 -p1
+%patch2 -p1
 
 %build
+%{__libtoolize}
+%{__intltoolize}
+%{__aclocal}
+%{__autoconf}
+%{__autoheader}
+%{__automake}
+
 %configure \
 	--disable-static
 %{__make}
@@ -46,6 +56,8 @@ rm -rf $RPM_BUILD_ROOT
 	DESTDIR=$RPM_BUILD_ROOT
 
 rm -f $RPM_BUILD_ROOT%{_libdir}/%{name}/*.la
+
+%find_lang %{name}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -62,7 +74,7 @@ rm -rf $RPM_BUILD_ROOT
 %postun
 %update_icon_cache hicolor
 
-%files
+%files -f %{name}.lang
 %defattr(644,root,root,755)
 %doc AUTHORS README
 %attr(755,root,root) %{_bindir}/*
@@ -70,7 +82,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_libdir}/%{name}/*.exe*
 %attr(755,root,root) %{_libdir}/%{name}/*.so
 %attr(755,root,root) %{_libdir}/%{name}/NDesk.*
-%attr(755,root,root) %{_libdir}/%{name}/notify-sharp.dll
+%attr(755,root,root) %{_libdir}/%{name}/*.dll
 %{_sysconfdir}/gconf/schemas/last-exit.schemas
 %{_sysconfdir}/gconf/schemas/lastfm.schemas
 %{_desktopdir}/*.desktop
