@@ -1,8 +1,11 @@
+#
+%include	/usr/lib/rpm/macros.mono
+#
 Summary:	GTK+ Last.fm player
 Summary(pl.UTF-8):	Odtwarzacz Last.fm dla GTK+
 Name:		last-exit
 Version:	5
-Release:	1
+Release:	2
 License:	GPL v2+
 Group:		X11/Applications/Multimedia
 Source0:	http://lastexit-player.org/releases/%{name}-%{version}.tar.bz2
@@ -15,11 +18,11 @@ BuildRequires:	GConf2-devel >= 2.14.0
 BuildRequires:	dbus-glib-devel >= 0.71
 BuildRequires:	dotnet-gnome-sharp-devel >= 2.15.0
 BuildRequires:	gstreamer-plugins-base-devel >= 0.10.9
-BuildRequires:	libsexy-devel	>= 0.1.5
+BuildRequires:	libsexy-devel >= 0.1.5
 BuildRequires:	mono-csharp >= 1.1.16.1
 BuildRequires:	rpmbuild(macros) >= 1.176
-Requires(post,preun):	GConf2 >= 2.14.0
 Requires(post,postun):	gtk+2 >= 2.10.2
+Requires(post,preun):	GConf2 >= 2.14.0
 Requires:	gstreamer-audio-effects-base >= 0.10.9
 Requires:	gstreamer-audio-formats >= 0.10.4
 Requires:	gstreamer-audiosink
