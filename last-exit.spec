@@ -26,6 +26,7 @@ Requires(post,preun):	GConf2 >= 2.14.0
 Requires:	gstreamer-audio-effects-base >= 0.10.9
 Requires:	gstreamer-audio-formats >= 0.10.4
 Requires:	gstreamer-audiosink
+Requires:	mono
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
