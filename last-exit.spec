@@ -23,6 +23,8 @@ BuildRequires:	mono-csharp >= 1.1.16.1
 BuildRequires:	rpmbuild(macros) >= 1.176
 Requires(post,postun):	gtk+2 >= 2.10.2
 Requires(post,preun):	GConf2 >= 2.14.0
+Requires:	dotnet-gtk-sharp2 >= 2.10.0
+Requires:	dotnet-gnome-sharp >= 2.16.0
 Requires:	gstreamer-audio-effects-base >= 0.10.9
 Requires:	gstreamer-audio-formats >= 0.10.4
 Requires:	gstreamer-audiosink
