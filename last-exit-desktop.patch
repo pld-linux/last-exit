@@ -6,7 +6,7 @@ diff -urN last-exit-4.orig/data/last-exit.desktop.in last-exit-4/data/last-exit.
  Encoding=UTF-8
  StartupNotify=true
 -Categories=GTK;Application;AudioVideo;
-+Categories=GTK;GNOME;AudioVideo;
++Categories=GTK;GNOME;AudioVideo;Audio;Player;
  X-GNOME-Bugzilla-Bugzilla=GNOME
  X-GNOME-Bugzilla-Product=last-exit
  X-GNOME-Bugzilla-Component=General
