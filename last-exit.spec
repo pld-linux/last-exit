@@ -14,12 +14,18 @@ Patch0:		%{name}-exec.patch
 Patch1:		%{name}-desktop.patch
 URL:		http://lastexit-player.org/
 BuildRequires:	GConf2-devel >= 2.14.0
+BuildRequires:	autoconf
+BuildRequires:	automake
 BuildRequires:	dbus-glib-devel >= 0.71
 BuildRequires:	dotnet-gnome-sharp-devel >= 2.15.0
 BuildRequires:	dotnet-ndesk-dbus-glib-sharp-devel >= 0.4.1
+BuildRequires:	gettext-devel
 BuildRequires:	gstreamer-plugins-base-devel >= 0.10.9
+BuildRequires:	intltool
 BuildRequires:	libsexy-devel >= 0.1.5
+BuildRequires:	libtool
 BuildRequires:	mono-csharp >= 1.1.16.1
+BuildRequires:	pkgconfig
 BuildRequires:	rpmbuild(macros) >= 1.176
 Requires(post,postun):	gtk+2 >= 2.10.2
 Requires(post,preun):	GConf2 >= 2.14.0
