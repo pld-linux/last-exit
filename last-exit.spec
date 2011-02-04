@@ -5,7 +5,7 @@ Summary:	GTK+ Last.fm player
 Summary(pl.UTF-8):	Odtwarzacz Last.fm dla GTK+
 Name:		last-exit
 Version:	6
-Release:	3
+Release:	4
 License:	GPL v2+
 Group:		X11/Applications/Multimedia
 Source0:	http://lastexit-player.org/releases/%{name}-%{version}.tar.bz2
@@ -27,7 +27,8 @@ BuildRequires:	libtool
 BuildRequires:	mono-csharp >= 1.1.16.1
 BuildRequires:	pkgconfig
 BuildRequires:	rpmbuild(macros) >= 1.176
-Requires(post,postun):	gtk+2 >= 2.10.2
+Requires(post,postun):	gtk-update-icon-cache
+Requires(post,postun):	hicolor-icon-theme
 Requires(post,preun):	GConf2 >= 2.14.0
 Requires:	dotnet-gnome-sharp >= 2.16.0
 Requires:	dotnet-gtk-sharp2 >= 2.10.0
