@@ -19,7 +19,7 @@ BuildRequires:	automake
 BuildRequires:	dbus-glib-devel >= 0.71
 BuildRequires:	dotnet-gnome-sharp-devel >= 2.15.0
 BuildRequires:	dotnet-ndesk-dbus-glib-sharp-devel >= 0.4.1
-BuildRequires:	gettext-devel
+BuildRequires:	gettext-tools
 BuildRequires:	gstreamer-plugins-base-devel >= 0.10.9
 BuildRequires:	intltool
 BuildRequires:	libsexy-devel >= 0.1.5
